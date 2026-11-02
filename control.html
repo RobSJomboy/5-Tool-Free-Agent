@@ -5,87 +5,95 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>5-Tool Free Agent · Control</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ftfa.css">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
-  body { background: #08131c; color: var(--ink); font: 14px/1.35 var(--sans); display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  body { --ui: #0b1f36; --ui2: #12304f; --ui3: #1d4570; --line: rgba(246,241,229,.14); --txt: #f6f1e5; --dim: #a9b6c4;
+    background: var(--ui); color: var(--txt); font: 500 16px/1.3 var(--cond); display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
   button, input, select { font: inherit; color: inherit; }
-  button { background: var(--navy3); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
-  button:hover { background: #24506f; }
-  button.gold { background: var(--gold); color: #10202c; border-color: var(--gold); font-weight: 700; }
-  button.on { background: #1f7a4a; border-color: #2fbf71; }
-  button.danger { background: #6b1f25; border-color: #b0383f; }
-  input[type=text], select { background: #0f2131; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 10px; }
+  button { background: var(--ui3); border: 0; border-bottom: 3px solid rgba(0,0,0,.25); border-radius: 2px; padding: 6px 12px 5px; cursor: pointer; white-space: nowrap;
+    font: 600 15px/1.1 var(--head); text-transform: uppercase; letter-spacing: .02em; }
+  button:hover { background: #275a8f; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.gold { background: var(--gold); color: var(--ink); }
+  button.on { background: var(--green); }
+  button.danger { background: #7d1426; }
+  input[type=text], input[type=number], select { background: #fff; color: var(--ink); border: 0; border-radius: 2px; padding: 6px 8px; font-weight: 600; }
+  input[type=number] { width: 66px; }
   label { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); }
-  .k { font: 11px var(--mono); letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+  .k { font: 600 13px var(--cond); letter-spacing: .1em; color: var(--tan); text-transform: uppercase; }
 
-  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--navy); border-bottom: 2px solid rgba(251,204,122,.35); flex-wrap: wrap; }
-  header h1 { margin: 0 8px 0 0; font: 30px/1 var(--bebas); letter-spacing: .03em; font-weight: 400; }
-  header h1 b { color: var(--gold); font-weight: 400; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--navy); border-bottom: 5px solid var(--gold); flex-wrap: wrap; }
+  header h1 { margin: 0 10px 0 0; font: 700 28px/1 var(--head); text-transform: uppercase; }
+  header h1 b { color: var(--gold); }
   .grow { flex: 1; }
-  .status { font: 12px var(--mono); color: var(--dim); }
-  .status.ok { color: #4ade80; } .status.bad { color: #ff7b7f; }
-  #airBtn.live { background: #b91c1c; border-color: #ef4444; }
+  .status { font: 600 14px var(--cond); color: var(--dim); }
+  .status.ok { color: #7ed99d; } .status.bad { color: #ff8a8d; }
+  #airBtn.live { background: var(--red); }
 
-  main { display: grid; grid-template-columns: 330px 1fr; min-height: 0; }
-  /* pool */
-  #pool { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid rgba(255,255,255,.08); background: #0b1924; }
-  .pool-top { padding: 10px; display: grid; gap: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  main { display: grid; grid-template-columns: 340px 1fr; min-height: 0; }
+  #pool { display: flex; flex-direction: column; min-height: 0; background: var(--ui2); }
+  .pool-top { padding: 10px; display: grid; gap: 8px; border-bottom: 1px solid var(--line); }
   .filters { display: flex; gap: 4px; flex-wrap: wrap; }
-  .filters button { padding: 4px 9px; font-size: 12px; }
-  .filters button.act { background: var(--gold); color: #10202c; }
-  #list { overflow-y: auto; flex: 1; padding: 6px; }
-  .row { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 6px; border-radius: 10px; cursor: grab; user-select: none; touch-action: none; border: 1px solid transparent; }
-  .row:hover { background: rgba(255,255,255,.05); }
-  .row.sel { border-color: var(--gold); background: rgba(251,204,122,.08); }
+  .filters button { padding: 4px 10px 3px; font-size: 13px; }
+  .filters button.act { background: var(--gold); color: var(--ink); }
+  #list { overflow-y: auto; flex: 1; padding: 4px 6px; }
+  .row { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 6px; cursor: grab; user-select: none; touch-action: none;
+    border-left: 4px solid transparent; border-bottom: 1px solid var(--line); }
+  .row:hover { background: rgba(246,241,229,.06); }
+  .row.sel { border-left-color: var(--gold); background: rgba(233,185,73,.12); }
   .row.placed { opacity: .5; }
-  .row .hs { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: var(--tc); }
+  .row .hs { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: var(--tc); border: 2px solid var(--paper); }
   .row .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
-  .row .n { font: 20px/1 var(--bebas); letter-spacing: .03em; }
-  .row .m { font: 11px var(--mono); color: var(--dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .where { font: 10px var(--mono); color: var(--gold); letter-spacing: .06em; }
-  .dots { display: flex; gap: 3px; }
-  .dots i { width: 22px; height: 22px; border-radius: 5px; font: 600 10px/22px var(--mono); text-align: center; font-style: normal; background: rgba(255,255,255,.06); color: #5d7183; }
-  .dots i.plus { background: var(--c); color: #0b1924; }
+  .row .n { font: 600 18px/1 var(--head); text-transform: uppercase; }
+  .row .m { font: 500 14px var(--cond); color: var(--dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .where { font: 700 12px var(--cond); color: var(--gold); letter-spacing: .06em; }
+  .dots { display: flex; gap: 2px; }
+  .dots i { width: 22px; height: 22px; font: 700 12px/22px var(--cond); text-align: center; font-style: normal; background: rgba(246,241,229,.07); color: #6f849b; }
+  .dots i.plus { background: var(--c); color: #fff; }
   body.nohints .dots { display: none; }
-  .sect { font: 11px var(--mono); letter-spacing: .14em; color: var(--dim); padding: 10px 6px 4px; }
+  .sect { font: 700 13px var(--cond); letter-spacing: .12em; color: var(--tan); padding: 12px 6px 4px; }
   .srch .row { cursor: pointer; }
 
-  /* centre */
   #centre { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 12px; gap: 10px; overflow-y: auto; }
-  #preview { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(255,255,255,.12); flex: none; }
+  #preview { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; outline: 1px solid var(--line); flex: none; }
   #preview .chips, #preview .chip { pointer-events: auto; }
   #preview .chip { cursor: grab; touch-action: none; }
-  #preview .chip.sel .ph { outline: 4px dashed #fff; outline-offset: 5px; }
+  #preview .chip.sel .ph { outline: 5px solid var(--red); outline-offset: 4px; }
   #preview .chip.dragging { opacity: .25; }
-  #preview .stage.off .board, #preview .stage.off .side { opacity: .35; }
-  .offtag { position: absolute; right: 10px; top: 10px; font: 12px var(--mono); background: #6b1f25; padding: 4px 8px; border-radius: 6px; letter-spacing: .1em; display: none; }
+  #preview .stage.off .board, #preview .stage.off .over { opacity: .35; }
+  .offtag { position: absolute; right: 10px; top: 10px; font: 700 14px var(--head); background: var(--red); padding: 4px 8px; display: none; z-index: 3; }
   body.offair .offtag { display: block; }
+  /* where the show frame and host cameras will sit — control preview only */
+  .guides { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+  body.noguides .guides { display: none; }
+  .guides .mask { position: absolute; background: rgba(120,85,40,.55); }
+  .guides .cam { position: absolute; background: rgba(15,39,66,.72); border: 6px solid #fff; display: grid; place-items: center;
+    font: 700 64px var(--head); color: rgba(246,241,229,.7); text-transform: uppercase; }
+  .guides .safe { position: absolute; border: 4px dashed #2fbf71; }
 
-  #insp { display: flex; flex-wrap: wrap; gap: 10px 18px; background: var(--navy); border-radius: 12px; padding: 12px 14px; }
+  #insp { display: flex; flex-wrap: wrap; gap: 10px 18px; background: var(--ui2); padding: 12px 14px; border-top: 4px solid var(--gold); }
   .who { display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1 1 380px; }
-  .who .hs { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--tc); flex: none; }
+  .who .hs { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--tc); flex: none; border: 3px solid var(--paper); }
   .who .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
-  .who .n { font: 30px/1 var(--bebas); letter-spacing: .03em; }
-  .who .m { font: 12px var(--mono); color: var(--dim); margin-top: 4px; }
-  .who .r { font: 12px var(--mono); margin-top: 4px; }
+  .who .n { font: 700 28px/1 var(--head); text-transform: uppercase; }
+  .who .m { font: 500 15px var(--cond); color: var(--dim); margin-top: 4px; }
+  .who .r { font: 700 15px var(--cond); margin-top: 4px; letter-spacing: .03em; }
   .acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .global { flex: 1 1 100%; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
-  .settings { flex: 1 1 100%; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .global, .settings { flex: 1 1 100%; display: flex; gap: 8px 14px; flex-wrap: wrap; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); }
   .settings input[type=text] { width: 110px; }
-  .hostA { color: #ff8a3d; } .hostB { color: #2ec4ff; }
-  .help { font: 12px var(--mono); color: #6f8293; }
+  .hostA { color: var(--hostA); } .hostB { color: var(--hostB); }
+  .help { font: 500 14px var(--cond); color: var(--dim); }
 
-  /* drag float + region readout */
   #float { position: fixed; pointer-events: none; z-index: 100; display: none; transform: translate(-50%, -50%); }
-  #float .hs { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 3px solid #fff; background: var(--tc); box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+  #float .hs { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 4px solid var(--ink); background: var(--tc); box-shadow: 4px 5px 0 rgba(0,0,0,.35); }
   #float .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
-  #float .rg { position: absolute; left: 50%; top: 82px; transform: translateX(-50%); white-space: nowrap; font: 18px/1 var(--bebas); letter-spacing: .05em;
-    background: #08131c; padding: 5px 9px 3px; border-radius: 6px; border: 1px solid var(--gold); color: var(--gold); }
-  #float .rg small { font: 11px var(--mono); color: #fff; margin-left: 6px; }
-  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8,19,28,.8); font: 28px var(--bebas); letter-spacing: .06em; color: var(--gold); z-index: 50; }
+  #float .rg { position: absolute; left: 50%; top: 80px; transform: translateX(-50%); white-space: nowrap; font: 700 18px/1 var(--head); text-transform: uppercase;
+    background: var(--ink); padding: 5px 9px 4px; border-bottom: 3px solid var(--gold); color: var(--paper); }
+  #float .rg small { font: 600 13px var(--cond); color: var(--tan); margin-left: 6px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(11,31,54,.85); font: 700 28px var(--head); color: var(--gold); z-index: 50; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -93,6 +101,7 @@
   <h1>THE <b>5-TOOL</b> FREE AGENT</h1>
   <button id="airBtn" title="Fade the whole board in / out on the display">Board ON AIR</button>
   <button id="cardBtn">Show card</button>
+  <button id="shedBtn" title="Tally of everyone on the board, by tool count">Show tool shed</button>
   <span class="grow"></span>
   <span class="k">room</span><input type="text" id="room" style="width:150px">
   <button id="copyUrl">Copy OBS URL</button>
@@ -124,7 +133,7 @@
       <div class="acts" id="acts"></div>
       <div class="global">
         <span class="k">board</span>
-        <button id="checkAll" title="Show where Savant would have put everyone">Savant check · all</button>
+        <button id="checkAll" title="Show where Savant would have put everyone">Savant check all</button>
         <button id="clearChecks">Clear checks</button>
         <button id="clearBoard" class="danger">Clear board</button>
         <span class="grow"></span>
@@ -138,8 +147,17 @@
         <label><span class="hostA">●</span> <input type="text" id="nameA"></label>
         <label><span class="hostB">●</span> <input type="text" id="nameB"></label>
         <label><input type="checkbox" id="autoSpot"> Spotlight on drop</label>
-        <label>Background <select id="bg"><option value="navy">Navy</option><option value="clear">Transparent</option></select></label>
-        <label>Subtitle <input type="text" id="subtitle" style="width:240px" placeholder="2026 · BUILT ON BASEBALL SAVANT"></label>
+        <label>Background <select id="bg"><option value="paper">Paper</option><option value="clear">Transparent</option></select></label>
+        <label>Subtitle <input type="text" id="subtitle" style="width:200px" placeholder="2026–27 OFFSEASON"></label>
+      </div>
+      <div class="settings">
+        <span class="k">safe area (stays clear of the host cams)</span>
+        <label>Left <input type="number" id="safeL" step="5"></label>
+        <label>Right <input type="number" id="safeR" step="5"></label>
+        <label>Top <input type="number" id="safeT" step="5"></label>
+        <label>Bottom <input type="number" id="safeB" step="5"></label>
+        <button id="safeReset">Reset</button>
+        <label><input type="checkbox" id="guides" checked> Show cam boxes in preview</label>
       </div>
     </div>
   </section>
@@ -157,11 +175,13 @@
   const YEAR = +params.get('year') || 2026;
 
   // ── state ──
-  const DEF = { room: 'tb-5tool-' + Math.random().toString(36).slice(2, 7), show: true, bg: 'navy', board: [], spot: null, spotOn: false,
-    checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, extra: [], fx: { n: 0 } };
+  const DEF = { room: 'tb-5tool-' + Math.random().toString(36).slice(2, 7), show: true, bg: 'paper', board: [], spot: null, spotOn: false,
+    shedOn: false, checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, guides: true,
+    extra: [], fx: { n: 0 }, safe: Object.assign({}, FT.SAFE_DEFAULT) };
   let S;
   try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { S = Object.assign({}, DEF); }
   if (params.get('room')) S.room = params.get('room');
+  if (S.bg !== 'clear') S.bg = 'paper';   // older saves used 'navy'
   let sel = null;
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} };
 
@@ -171,11 +191,24 @@
   const fit = () => { stage.el.style.transform = `scale(${scale()})`; };
   new ResizeObserver(fit).observe($('preview'));
   fit();
+  // show frame + camera boxes, drawn over the preview only (never sent to the display)
+  const guides = document.createElement('div');
+  guides.className = 'guides';
+  stage.el.appendChild(guides);
+  function drawGuides() {
+    const s = S.safe, C = FT.CAMS, v = C.video, h = C.bottom - C.top;
+    const box = (cls, x, y, w, hh, txt = '') => `<div class="${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${hh}px">${txt}</div>`;
+    guides.innerHTML =
+      box('mask', 0, 0, 1920, v.t) + box('mask', 0, v.b, 1920, 1080 - v.b) + box('mask', 0, v.t, v.l, v.b - v.t) + box('mask', v.r, v.t, 1920 - v.r, v.b - v.t) +
+      box('cam', 10, C.top, Math.max(60, s.l - 18), h, FT.esc(S.names.a)) +
+      box('cam', s.r + 8, C.top, Math.max(60, 1910 - s.r - 8), h, FT.esc(S.names.b)) +
+      box('safe', s.l, s.t, s.r - s.l, s.b - s.t);
+  }
 
   const net = (t, c) => { $('net').textContent = t; $('net').className = 'status ' + c; };
   const send = FT.publisher(HUB, () => S.room, net);
   const payload = () => {
-    const { room, autoSpot, hints, extra, ...wire } = S;
+    const { room, autoSpot, hints, guides, extra, ...wire } = S;
     return Object.assign(wire, { app: 'ftfa', seq: Date.now() });
   };
   let pubT = 0;
@@ -204,6 +237,10 @@
     $('airBtn').classList.toggle('live', S.show);
     $('cardBtn').textContent = S.spotOn ? 'Hide card' : 'Show card';
     $('cardBtn').classList.toggle('on', S.spotOn);
+    $('shedBtn').textContent = S.shedOn ? 'Hide tool shed' : 'Show tool shed';
+    $('shedBtn').classList.toggle('on', S.shedOn);
+    document.body.classList.toggle('noguides', !S.guides);
+    drawGuides();
     stage.render(Object.assign({}, S, { sel }));
     drawList(); drawInsp();
   }
@@ -325,7 +362,7 @@
     return [(e.clientX - r.left) / s, (e.clientY - r.top) / s];
   }
   // keep chips on the Venn side of the screen, clear of the side panel
-  const clampPt = ([x, y]) => [Math.max(50, Math.min(1250, x)), Math.max(50, Math.min(1030, y))];
+  const clampPt = ([x, y]) => [Math.max(S.safe.l + 45, Math.min(S.safe.r - 45, x)), Math.max(S.safe.t + 45, Math.min(S.safe.b - 70, y))];
   // Nudge a drop off any chip it would cover, without leaving the region it was
   // dropped in — the region is the take, the exact spot isn't.
   function freeSpot(id, [x, y]) {
@@ -423,6 +460,7 @@
     else if (sel || S.spot) { S.spot = sel || S.spot; S.spotOn = true; }
     commit();
   };
+  $('shedBtn').onclick = () => { S.shedOn = !S.shedOn; if (S.shedOn) S.spotOn = false; commit(); };
   $('checkAll').onclick = () => { S.checks = S.board.map(b => b[0]); commit(); };
   $('clearChecks').onclick = () => { S.checks = []; commit(); };
   $('clearBoard').onclick = () => {
@@ -436,6 +474,15 @@
   bindVal('nameB', () => S.names.b, v => S.names.b = v);
   bindVal('bg', () => S.bg, v => S.bg = v);
   bindVal('subtitle', () => S.subtitle, v => S.subtitle = v);
+  for (const [id, k] of [['safeL', 'l'], ['safeR', 'r'], ['safeT', 't'], ['safeB', 'b']])
+    bindVal(id, () => S.safe[k], v => { if (v !== '' && !isNaN(+v)) S.safe[k] = +v; });
+  $('safeReset').onclick = () => {
+    S.safe = Object.assign({}, FT.SAFE_DEFAULT);
+    for (const [id, k] of [['safeL', 'l'], ['safeR', 'r'], ['safeT', 't'], ['safeB', 'b']]) $(id).value = S.safe[k];
+    commit();
+  };
+  $('guides').checked = S.guides;
+  $('guides').onchange = () => { S.guides = $('guides').checked; save(); draw(); };
   $('autoSpot').checked = S.autoSpot;
   $('autoSpot').onchange = () => { S.autoSpot = $('autoSpot').checked; save(); };
   $('hints').checked = S.hints;

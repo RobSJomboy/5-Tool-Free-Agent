@@ -15,11 +15,11 @@ const FT = (() => {
 
   // ── the five tools, clockwise from the top ellipse ──
   const TOOLS = [
-    { key: 'hit',   name: 'HIT',   color: '#f5c451', blurb: 'Contact & bat-to-ball' },
-    { key: 'power', name: 'POWER', color: '#ff6b4a', blurb: 'Damage on contact' },
-    { key: 'speed', name: 'SPEED', color: '#3ddc97', blurb: 'Sprint speed' },
-    { key: 'arm',   name: 'ARM',   color: '#4aa8ff', blurb: 'Throwing strength' },
-    { key: 'glove', name: 'GLOVE', color: '#c084fc', blurb: 'Range & defense' },
+    { key: 'hit',   name: 'HIT',   color: '#c98a00', blurb: 'Contact & bat-to-ball' },
+    { key: 'power', name: 'POWER', color: '#c8102e', blurb: 'Damage on contact' },
+    { key: 'speed', name: 'SPEED', color: '#1d7f45', blurb: 'Sprint speed' },
+    { key: 'arm',   name: 'ARM',   color: '#1f5fbf', blurb: 'Throwing strength' },
+    { key: 'glove', name: 'GLOVE', color: '#6b3fa0', blurb: 'Range & defense' },
   ];
   const COUNT_NAME = ['JUST A GUY', 'ONE-TOOL', 'TWO-TOOL', 'THREE-TOOL', 'FOUR-TOOL', 'FIVE-TOOL'];
 
@@ -49,8 +49,20 @@ const FT = (() => {
   const countOf = m => bits(m).length;
   const regionName = m => m === 0 ? 'NO PLUS TOOLS' : m === 31 ? 'ALL FIVE' : bits(m).map(t => t.name).join(' · ');
 
-  // On-air layout (1920×1080 stage)
-  const LAY = { CX: 680, CY: 548, U: 560, W: 1920, H: 1080 };
+  // On-air layout (1920×1080 stage). The show frame puts the two host cameras over
+  // the left and right of the video window, so everything lives in a "safe" rect
+  // between them. Defaults were measured off a Talkin' Baseball frame grab:
+  // video window x165–1750 y41–901, Trev's box x10–392, Jake's x1528–1910 (y≈230–805).
+  const SAFE_DEFAULT = { l: 400, t: 48, r: 1520, b: 895 };
+  const CAMS = { top: 230, bottom: 805, video: { l: 165, t: 41, r: 1750, b: 901 } };
+  const LAY = { CX: 960, CY: 472, U: 469, W: 1920, H: 1080, safe: Object.assign({}, SAFE_DEFAULT) };
+  function setSafe(s) {
+    const S = LAY.safe = Object.assign({}, SAFE_DEFAULT, s || {});
+    LAY.CX = (S.l + S.r) / 2; LAY.CY = (S.t + S.b) / 2;
+    // diagram spans ±0.88 units; keep a little air for the tool labels
+    LAY.U = Math.min((S.r - S.l) / 2, (S.b - S.t) / 2) / 0.9;
+  }
+  setSafe();
   const toPx = (u, v) => [LAY.CX + u * LAY.U, LAY.CY + v * LAY.U];
   const toUV = (x, y) => [(x - LAY.CX) / LAY.U, (y - LAY.CY) / LAY.U];
 
@@ -267,19 +279,17 @@ const FT = (() => {
       strokes += `<ellipse class="vstroke" ${shape} stroke="${t.color}"/>`;
       // tool label sits out at the tip of the ellipse's own (single-tool) region
       const [pu, pv] = POLES[1 << k], r = Math.hypot(pu, pv), [lx, ly] = toPx(pu / r * 0.8, pv / r * 0.8);
-      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}">${t.name}</text></g>`;
+      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}" style="font-size:${Math.round(U * .115)}px">${t.name}</text></g>`;
     });
     return `<svg class="venn" viewBox="0 0 ${LAY.W} ${LAY.H}" width="${LAY.W}" height="${LAY.H}">
       <defs>${defs}
-        <radialGradient id="coreGlow"><stop offset="0" stop-color="#fbcc7a" stop-opacity=".55"/><stop offset="1" stop-color="#fbcc7a" stop-opacity="0"/></radialGradient>
-        <mask id="hlMask"></mask>
       </defs>
       <g class="vfills">${fills}</g>
-      <g class="core">${regionShape(31, 'url(#coreGlow)')}</g>
+      <g class="core">${regionShape(31, '#e9b949')}</g>
       <g class="hl"></g>
       <g class="vstrokes">${strokes}</g>
       <g class="vlabels">${labels}
-        <g class="vlabel core-label" transform="translate(${cx} ${cy - POLES[31][2] * U * 0.62})"><text>★ 5-TOOL ★</text></g>
+        <g class="core-label" transform="translate(${cx} ${cy - POLES[31][2] * U * 0.66})"><rect x="-58" y="-17" width="116" height="34"/><text>5-TOOL</text></g>
       </g>
     </svg>`;
   }
@@ -299,25 +309,39 @@ const FT = (() => {
     el.innerHTML = `
       <div class="backdrop"></div>
       <div class="board">
-        <div class="plate"><div class="kicker">TALKIN' BASEBALL</div><div class="title">THE <b>5-TOOL</b> FREE AGENT</div><div class="sub"></div></div>
-        ${vennSVG()}
-        <div class="guyzone"><span>OUTSIDE THE CIRCLES</span><b>JUST A GUY</b></div>
+        <div class="plate"><div class="title">5-TOOL<br>FREE AGENT</div><div class="sub"></div></div>
+        <div class="vwrap">${vennSVG()}</div>
+        <div class="guyzone"><b>JUST A GUY</b><span>outside the circles</span></div>
         <svg class="links" viewBox="0 0 ${LAY.W} ${LAY.H}" width="${LAY.W}" height="${LAY.H}">
-          <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker></defs>
+          <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>
           <g class="lk"></g>
         </svg>
         <div class="ghosts"></div>
         <div class="chips"></div>
         <div class="fx"></div>
       </div>
-      <div class="side">
+      <div class="over">
         <div class="shed"></div>
         <div class="card"></div>
       </div>`;
     host.appendChild(el);
     const q = s => el.querySelector(s);
     const chipEls = {}, ghostEls = {};
-    let lastFx = 0, lastSpot = null, lastShedKey = '', hlMask = -1;
+    let lastFx = 0, lastSpot = null, lastShedKey = '', hlMask = -1, lastSafe = '';
+    function layout(safe) {
+      const key = JSON.stringify(safe || {});
+      if (key === lastSafe) return;
+      lastSafe = key;
+      setSafe(safe);
+      const s = LAY.safe;
+      q('.vwrap').innerHTML = vennSVG();
+      hlMask = -1;
+      Object.assign(q('.plate').style, { left: s.l + 'px', top: s.t + 'px' });
+      Object.assign(q('.guyzone').style, { left: s.l + 'px', top: (s.b - 170) + 'px' });
+      // the card and the shed sit over the Venn, centred in the safe area
+      const o = q('.over'), k = Math.min(1, (s.r - s.l - 24) / 1080, (s.b - s.t - 24) / 640);
+      Object.assign(o.style, { left: (s.l + s.r) / 2 + 'px', top: (s.t + s.b) / 2 + 'px', transform: `translate(-50%,-50%) scale(${k})` });
+    }
 
     function chipHTML(p) {
       return `<div class="ph" style="--tc:${p.team.color}"><img src="${headshot(p.id, 180)}" alt="" draggable="false"></div>
@@ -328,11 +352,11 @@ const FT = (() => {
       if (m === hlMask) return;
       hlMask = m;
       q('.hl').classList.remove('flash');
-      q('.hl').innerHTML = m < 0 ? '' : regionShape(m, 'rgba(255,255,255,.28)');
+      q('.hl').innerHTML = m < 0 ? '' : regionShape(m, 'rgba(19,41,75,.2)');
     }
     function flashRegion(m) {
       const g = q('.hl');
-      g.innerHTML = regionShape(m, 'rgba(255,255,255,.45)');
+      g.innerHTML = regionShape(m, 'rgba(19,41,75,.32)');
       g.classList.remove('flash'); void g.getBoundingClientRect(); g.classList.add('flash');
       hlMask = -2;
     }
@@ -346,7 +370,7 @@ const FT = (() => {
       setTimeout(() => s.remove(), 3200);
     }
     function confetti(x, y) {
-      const colors = TOOLS.map(t => t.color).concat('#ffffff', '#fbcc7a');
+      const colors = TOOLS.map(t => t.color).concat('#13294b', '#e9b949');
       for (let i = 0; i < 90; i++) {
         const c = document.createElement('i');
         c.className = 'conf';
@@ -363,12 +387,11 @@ const FT = (() => {
     }
 
     function render(S) {
+      layout(S.safe);
       el.classList.toggle('clear', S.bg === 'clear');
       el.classList.toggle('off', !S.show);
       el.style.setProperty('--chip', S.chipScale || 1);
-      el.style.setProperty('--hostA', S.hostColors?.a || '#ff8a3d');
-      el.style.setProperty('--hostB', S.hostColors?.b || '#2ec4ff');
-      q('.plate .sub').textContent = S.subtitle || `${DB.year} · BUILT ON BASEBALL SAVANT`;
+      q('.plate .sub').textContent = S.subtitle || `${DB.year}–${(DB.year + 1) % 100} OFFSEASON`;
       const T = S.T || 55, board = S.board || [], on = {};
 
       // chips
@@ -411,9 +434,9 @@ const FT = (() => {
         const n = seen[sm] = (seen[sm] || 0) + 1, [pu, pv, pr] = POLES[sm] || [0.62, 0.62, .2];
         // fan out repeat ghosts around the region's deepest point
         const ang = n * 2.4, rad = n === 1 ? 0 : Math.min(pr * .8, .05 * Math.sqrt(n));
-        const gu = sm === 0 ? 0.7 + ((n - 1) % 3) * 0.12 : pu + Math.cos(ang) * rad;
-        const gv = sm === 0 ? 0.7 + Math.floor((n - 1) / 3) * 0.12 : pv + Math.sin(ang) * rad;
-        ghosts.push({ id, p, sm, from: toPx(b[1], b[2]), to: toPx(gu, gv) });
+        const to = sm === 0 ? [LAY.safe.l + 250 + ((n - 1) % 3) * 100, LAY.safe.b - 60 - Math.floor((n - 1) / 3) * 110]
+          : toPx(pu + Math.cos(ang) * rad, pv + Math.sin(ang) * rad);
+        ghosts.push({ id, p, sm, from: toPx(b[1], b[2]), to });
       }
       const gOn = {};
       for (const g of ghosts) {
@@ -438,6 +461,7 @@ const FT = (() => {
       // side panel: spotlight card, or the running tally
       const spotP = S.spotOn && S.spot && DB.players[S.spot];
       el.classList.toggle('carding', !!spotP);
+      el.classList.toggle('shedding', !spotP && !!S.shedOn);
       if (spotP) {
         const key = JSON.stringify([S.spot, board.find(r => r[0] === S.spot), (S.checks || []).includes(S.spot), T, S.names]);
         if (key !== lastSpot) {
@@ -457,10 +481,10 @@ const FT = (() => {
         lastFx = S.fx.n;
         if (fresh) {
           const b = board.find(r => r[0] === S.fx.id), [x, y] = b ? toPx(b[1], b[2]) : toPx(0, 0);
-          if (S.fx.type === 'five') { confetti(x, y); stamp('FIVE-TOOL!', LAY.CX, LAY.CY - 40, 'gold'); flashRegion(31); }
+          if (S.fx.type === 'five') { confetti(x, y); stamp('FIVE-TOOL!', LAY.CX, LAY.CY - 40, 'red'); flashRegion(31); }
           else if (S.fx.type === 'guy') stamp('JUST A GUY', x, y - 30, 'grey');
           else if (S.fx.type === 'agree') stamp('SAVANT AGREES', x, y - 70, 'green');
-          else if (S.fx.type === 'overrule') stamp('OVERRULED!', x, y - 70, 'red');
+          else if (S.fx.type === 'overrule') stamp('OVERRULED', x, y - 70, 'red');
           else if (S.fx.type === 'land' && b) flashRegion(maskAt(b[1], b[2]));
         }
       }
@@ -469,14 +493,14 @@ const FT = (() => {
     function shedHTML(board, S) {
       const groups = [[], [], [], [], [], []];
       for (const [id, u, v, by] of board) { const p = DB.players[id]; if (p) groups[countOf(maskAt(u, v))].push({ p, by }); }
-      let h = `<div class="shed-h">THE TOOL SHED <span>${board.length} free agent${board.length === 1 ? '' : 's'} sorted</span></div>`;
+      let h = `<div class="shed-h"><b>THE TOOL SHED</b><span>${board.length} FREE AGENT${board.length === 1 ? '' : 'S'} SORTED</span></div><div class="shed-body">`;
       for (let n = 5; n >= 0; n--) {
         if (!groups[n].length) continue;
         h += `<div class="tier t${n}"><div class="tier-h">${COUNT_NAME[n]}</div><div class="tier-list">` +
           groups[n].map(({ p, by }) => `<span class="pill ${by ? 'by' + by.toUpperCase() : ''}"><img src="${headshot(p.id, 90)}" alt="">${esc(p.last)}</span>`).join('') + `</div></div>`;
       }
-      if (!board.length) h += `<div class="shed-empty">Drag a free agent into the circles</div>`;
-      return h;
+      if (!board.length) h += `<div class="shed-empty">Nobody's on the board yet</div>`;
+      return h + '</div>';
     }
 
     // expose for the control page
@@ -504,29 +528,29 @@ const FT = (() => {
       : `<tr><th>${lab}</th><td colspan="7" class="dim">did not play</td></tr>`;
     let verdict = '';
     if (b) {
-      const hostCount = countOf(hm);
-      verdict = `<div class="verdict"><div class="vh"><span>HOSTS SAY</span><b>${COUNT_NAME[hostCount]}</b></div>`;
+      verdict = `<div class="verdict"><div class="vh"><span>HOSTS SAY</span><b>${COUNT_NAME[countOf(hm)]}</b></div>`;
       if (checked) {
         const agree = sm === hm;
-        verdict += `<div class="vs ${agree ? 'agree' : 'disagree'}"><span>SAVANT SAYS</span><b>${COUNT_NAME[countOf(sm)]}</b><em>${agree ? '✓ AGREES' : 'OVERRULED'}</em></div>`;
+        verdict += `<div class="vs ${agree ? 'agree' : 'disagree'}"><span>SAVANT SAYS</span><b>${COUNT_NAME[countOf(sm)]}</b><em>${agree ? 'AGREES' : 'OVERRULED'}</em></div>`;
       }
       verdict += '</div>';
     }
     return `
-      <div class="c-top" style="--tc:${p.team.color}">
+      <div class="c-left" style="--tc:${p.team.color}">
         <div class="c-photo"><img src="${headshot(p.id, 426)}" alt=""></div>
-        <div class="c-id">
-          <div class="c-tag">${p.fa ? 'FREE AGENT' : 'ON THE BLOCK'}${p.team.id ? ` · LAST: <img src="${logo(p.team.id)}" alt="">${p.team.abbr}` : ''}</div>
-          <div class="c-name">${esc(p.first)} <b>${esc(p.last)}</b></div>
-          <div class="c-meta">${p.pos} · AGE ${p.age ?? '—'} · B/T ${p.bats || '?'}/${p.throws || '?'}</div>
-        </div>
+        <div class="c-tag">${p.fa ? 'FREE AGENT' : 'ON THE MARKET'}${p.team.id ? `<span><img src="${logo(p.team.id)}" alt="">LAST: ${p.team.abbr}</span>` : ''}</div>
       </div>
-      ${verdict}
-      <div class="tools-h"><span>TOOL</span><span>GRADE</span><span>SAVANT PERCENTILE · ${p.savYear}${p.savYear !== y ? ' (LIMITED ' + y + ')' : ''}</span></div>
-      <div class="tools">${rows}</div>
-      <table class="stats"><thead><tr><th></th><th>G</th><th>AVG</th><th>OBP</th><th>SLG</th><th>HR</th><th>SB</th><th>WAR</th></tr></thead>
-        <tbody>${line(String(y), s, p.war)}${line('CAREER', c, null)}</tbody></table>
-      <div class="c-foot">Grades on the 20–80 scouting scale from Baseball Savant percentiles · plus tool = ${T}+</div>`;
+      <div class="c-right">
+        <div class="c-head">
+          <div class="c-id"><div class="c-name">${esc(p.first)} <b>${esc(p.last)}</b></div>
+            <div class="c-meta">${p.pos} <i>|</i> AGE ${p.age ?? '—'} <i>|</i> B/T ${p.bats || '?'}/${p.throws || '?'}</div></div>
+          ${verdict}
+        </div>
+        <div class="tools-h"><span>TOOL</span><span>GRADE</span><span>BASEBALL SAVANT PERCENTILE · ${p.savYear}${p.savYear !== y ? ' (LIMITED ' + y + ' SAMPLE)' : ''}</span></div>
+        <div class="tools">${rows}</div>
+        <table class="stats"><thead><tr><th></th><th>G</th><th>AVG</th><th>OBP</th><th>SLG</th><th>HR</th><th>SB</th><th>WAR</th></tr></thead>
+          <tbody>${line(String(y), s, p.war)}${line('CAREER', c, null)}</tbody></table>
+      </div>`;
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -577,6 +601,6 @@ const FT = (() => {
     setInterval(poll, 30000);
   }
 
-  return { TOOLS, COUNT_NAME, LAY, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
+  return { TOOLS, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
     load, ensure, search, createStage, cardHTML, pctColor, esc, hubOf, publisher, subscribe };
 })();
