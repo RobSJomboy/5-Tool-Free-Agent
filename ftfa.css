@@ -136,10 +136,14 @@
 .verdict .vs span { color: rgba(255,255,255,.75); }
 @keyframes shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
 
-.tools-h { display: grid; grid-template-columns: 124px 64px 1fr; padding: 12px 8px 4px; font: 600 14px var(--cond); letter-spacing: .08em; color: var(--slate);
+.tools-h { display: grid; grid-template-columns: 124px 64px 1fr; padding: 8px 8px 4px; font: 600 14px var(--cond); letter-spacing: .08em; color: var(--slate);
   border-bottom: 2px solid var(--ink); }
 .tools { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
-.tool { display: grid; grid-template-columns: 124px 64px 1fr; align-items: center; padding: 3px 8px 3px 2px; border-left: 6px solid transparent; }
+.tool { display: grid; grid-template-columns: 124px 64px 1fr; align-items: center; padding: 2px 8px 2px 2px; border-left: 6px solid transparent; }
+.tool.abs { border-top: 2px dashed rgba(19,41,75,.25); }
+.tool.abs .tname { font-size: 26px; color: var(--ink); }
+.tool.abs .tname small { display: block; font: 700 12px/1 var(--cond); letter-spacing: .08em; color: var(--slate); margin-top: 2px; }
+.tool.abs .grade, .tool.abs:not(.host) .grade { font-size: 30px; color: var(--ink); }
 .tool.host { background: color-mix(in srgb, var(--c) 12%, transparent); border-left-color: var(--c); }
 .tname { font: 700 28px/1 var(--head); color: var(--c); }
 .tname i { display: none; }

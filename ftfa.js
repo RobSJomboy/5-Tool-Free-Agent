@@ -127,45 +127,83 @@ const FT = (() => {
   async function savantYear(y) {
     const q = [
       `/leaderboard/percentile-rankings?type=batter&year=${y}&min=1&csv=true`,
-      `/leaderboard/custom?year=${y}&type=batter&min=1&selections=xba,xslg,xwoba,exit_velocity_avg,barrel_batted_rate,hard_hit_percent,k_percent,bb_percent,whiff_percent,avg_swing_speed&csv=true`,
+      `/leaderboard/custom?year=${y}&type=batter&min=1&selections=pa,batting_avg,isolated_power,home_run,r_total_stolen_base,xba,xslg,xwoba,exit_velocity_avg,barrel_batted_rate,hard_hit_percent,k_percent,bb_percent,whiff_percent,avg_swing_speed&csv=true`,
       `/leaderboard/sprint_speed?year=${y}&position=&team=&min=0&csv=true`,
       `/leaderboard/arm-strength?type=player&year=${y}&minThrows=1&csv=true`,
       `/leaderboard/outs_above_average?type=Fielder&startYear=${y}&endYear=${y}&min=1&csv=true`,
       `/leaderboard/poptime?year=${y}&team=&min2b=1&min3b=0&csv=true`,
       `/leaderboard/catcher-framing?year=${y}&team=&min=1&type=catcher&csv=true`,
+      `/leaderboard/abs-challenges?csv=true&season%5B%5D=${y}&challengeType=catcher&level=mlb&minChal=0`,
     ];
-    const [pct, cus, spd, arm, oaa, pop, frm] = await Promise.all(q.map(u => csv(SAV + u).catch(() => [])));
+    const [pct, cus, spd, arm, oaa, pop, frm, abs] = await Promise.all(q.map(u => csv(SAV + u).catch(() => [])));
+    // rank v against a pool of values: share of the pool it beats, 0-100
+    const rankIn = (pool, v, lowerIsBetter) => pool.length < 2 ? null :
+      Math.round(100 * pool.filter(o => lowerIsBetter ? o > v : o < v).length / (pool.length - 1));
     // catchers don't get arm/OAA percentiles on the card — rank them among catchers instead
-    const popQ = pop.filter(r => num(r.pop_2b_sba_count) >= 3 && num(r.pop_2b_sba) != null);
+    const popQ = pop.filter(r => num(r.pop_2b_sba_count) >= 3 && num(r.pop_2b_sba) != null).map(r => num(r.pop_2b_sba));
     const popPct = {};
-    for (const r of popQ) {
-      const t = num(r.pop_2b_sba);
-      popPct[+r.entity_id] = Math.round(100 * popQ.filter(o => num(o.pop_2b_sba) > t).length / Math.max(1, popQ.length - 1));
+    for (const r of pop) if (num(r.pop_2b_sba_count) >= 3 && num(r.pop_2b_sba) != null) popPct[+r.entity_id] = rankIn(popQ, num(r.pop_2b_sba), true);
+    const frmQ = frm.map(r => num(r.rv_tot)).filter(v => v != null), frmPct = {};
+    for (const r of frm) if (num(r.rv_tot) != null) frmPct[+r.id] = rankIn(frmQ, num(r.rv_tot));
+    // Real production, so a 26-steal season counts for Speed and homers count for Power.
+    // Ranked among hitters with a real workload (150 PA, or 50 early in a season).
+    const cusById = byId(cus);
+    const minPA = cus.filter(r => num(r.pa) >= 150).length >= 100 ? 150 : 50;
+    const reg = cus.filter(r => num(r.pa) >= minPA);
+    const cpct = {};
+    // Savant only publishes batting percentiles for qualified hitters; part-timers
+    // (most backup catchers) get the same metrics ranked here from the raw values.
+    for (const [k, col, low] of [['avg', 'batting_avg'], ['iso', 'isolated_power'], ['sb', 'r_total_stolen_base'],
+      ['xba', 'xba'], ['xslg', 'xslg'], ['k_percent', 'k_percent', true], ['whiff_percent', 'whiff_percent', true],
+      ['brl_percent', 'barrel_batted_rate'], ['bat_speed', 'avg_swing_speed']]) {
+      const pool = reg.map(r => num(r[col])).filter(v => v != null);
+      for (const r of cus) if (num(r[col]) != null && num(r.pa) >= 50) (cpct[+r.player_id] ||= {})[k] = rankIn(pool, num(r[col]), low);
     }
-    const frmPct = {};
-    for (const r of frm) {
-      const t = num(r.rv_tot);
-      if (t == null) continue;
-      frmPct[+r.id] = Math.round(100 * frm.filter(o => num(o.rv_tot) < t).length / Math.max(1, frm.length - 1));
+    // ABS challenges by catchers (2026 on). Savant's CSV has names but no ids.
+    const absByName = {}, absQ = abs.filter(r => num(r.n_challenges) >= 20).map(r => num(r.runs_above_average));
+    for (const r of abs) absByName[nameKey(r.entity_name)] = {
+      n: num(r.n_challenges), ot: num(r.n_overturns), rate: num(r.rate_overturns), exp: num(r.exp_rate_overturns),
+      runs: num(r.runs_above_average), pct: num(r.n_challenges) >= 20 ? rankIn(absQ, num(r.runs_above_average)) : null };
+    const sv = { y, pct: byId(pct), cus: cusById, spd: byId(spd), arm: byId(arm), oaa: byId(oaa),
+      pop: byId(pop, 'entity_id'), popPct, frm: byId(frm, 'id'), frmPct, cpct, absByName, norm: {} };
+    // Averaging four percentiles drags everyone toward 50, so a composite is
+    // re-ranked against the same composite for every regular. Without this almost
+    // nobody clears 55 and good all-round players land outside every circle.
+    for (const key of ['hit', 'power', 'speed']) {
+      sv.norm[key] = reg.map(r => composite(toolParts(sv, +r.player_id, key))).filter(v => v != null).sort((a, b) => a - b);
     }
-    return { y, pct: byId(pct), cus: byId(cus), spd: byId(spd), arm: byId(arm), oaa: byId(oaa),
-      pop: byId(pop, 'entity_id'), popPct, frm: byId(frm, 'id'), frmPct };
+    return sv;
   }
+  const nameKey = n => String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\b(jr|sr|ii|iii)\b/g, '').replace(/[^a-z]/g, '');
 
   // ── tool scoring ──
-  // A tool = the mean of its Savant percentiles, converted to the scouting 20-80
-  // scale (50 = average, every 10 = one standard deviation). "Plus" = 55+ by default.
+  // Each tool blends Savant percentiles with real production (ranked the same way),
+  // re-ranked against the league, then put on the scouting 20-80 scale
+  // (50 = average, every 10 = one standard deviation). "Plus" = 55+ by default.
   const fmt3 = v => v == null ? null : (+v).toFixed(3).replace(/^0/, '');
+  // [key, label, value] — keys starting "c:" are production ranks from cpct
   const COMP = {
-    hit:   [['xba', 'xBA', s => fmt3(num(s.cus?.xba))], ['k_percent', 'K%', s => s.cus?.k_percent && `${s.cus.k_percent}%`],
-            ['whiff_percent', 'Whiff%', s => s.cus?.whiff_percent && `${s.cus.whiff_percent}%`], ['squared_up_rate', 'Squared-Up%']],
-    power: [['xslg', 'xSLG', s => fmt3(num(s.cus?.xslg))], ['brl_percent', 'Barrel%', s => s.cus?.barrel_batted_rate && `${s.cus.barrel_batted_rate}%`],
-            ['exit_velocity', 'Avg EV', s => s.cus?.exit_velocity_avg && `${s.cus.exit_velocity_avg} mph`], ['bat_speed', 'Bat Speed', s => s.cus?.avg_swing_speed && `${s.cus.avg_swing_speed} mph`]],
-    speed: [['sprint_speed', 'Sprint Speed', s => s.spd?.sprint_speed && `${s.spd.sprint_speed} ft/s`]],
+    hit:   [['c:avg', 'AVG', s => fmt3(num(s.cus?.batting_avg))], ['xba', 'xBA', s => fmt3(num(s.cus?.xba))],
+            ['k_percent', 'K%', s => s.cus?.k_percent && `${s.cus.k_percent}%`], ['whiff_percent', 'Whiff%', s => s.cus?.whiff_percent && `${s.cus.whiff_percent}%`],
+            ['squared_up_rate', 'Squared-Up%']],
+    power: [['c:iso', 'ISO', s => s.cus?.isolated_power && `${fmt3(num(s.cus.isolated_power))} (${s.cus.home_run} HR)`], ['xslg', 'xSLG', s => fmt3(num(s.cus?.xslg))],
+            ['brl_percent', 'Barrel%', s => s.cus?.barrel_batted_rate && `${s.cus.barrel_batted_rate}%`], ['max_ev', 'Max EV'],
+            ['bat_speed', 'Bat Speed', s => s.cus?.avg_swing_speed && `${s.cus.avg_swing_speed} mph`]],
+    speed: [['sprint_speed', 'Sprint Speed', s => s.spd?.sprint_speed && `${s.spd.sprint_speed} ft/s`], ['c:sb', 'SB', s => s.cus?.r_total_stolen_base]],
     arm:   [['arm_strength', 'Arm Strength', s => s.arm?.arm_overall && `${(+s.arm.arm_overall).toFixed(1)} mph`]],
     glove: [['oaa', 'Outs Above Avg', s => s.oaa?.outs_above_average != null && s.oaa.outs_above_average !== '' ? signed(+s.oaa.outs_above_average) + ' OAA' : null]],
   };
   const signed = n => (n > 0 ? '+' : '') + (Math.round(n * 10) / 10);
+  function toolParts(sv, id, key) {
+    const src = { pct: sv.pct[id], cus: sv.cus[id], spd: sv.spd[id], arm: sv.arm[id], oaa: sv.oaa[id] };
+    return COMP[key].map(([k, label, val]) => ({ label, val: val ? val(src) || null : null,
+      pct: k.startsWith('c:') ? sv.cpct[id]?.[k.slice(2)] ?? null : num(src.pct?.[k]) ?? sv.cpct[id]?.[k] ?? null }));
+  }
+  // mean of the percentiles present, if at least half the parts are there
+  const composite = parts => {
+    const have = parts.filter(p => p.pct != null);
+    return have.length && have.length * 2 >= parts.length ? have.reduce((s, p) => s + p.pct, 0) / have.length : null;
+  };
   function invNorm(p) { // Acklam's rational approximation
     const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
     const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
@@ -180,19 +218,19 @@ const FT = (() => {
   const gradeOf = pct => pct == null ? null : Math.max(20, Math.min(80, Math.round((50 + 10 * invNorm(Math.min(.995, Math.max(.005, pct / 100)))) / 5) * 5));
 
   function scoreTools(sv, id, isC) {
-    const src = { pct: sv.pct[id], cus: sv.cus[id], spd: sv.spd[id], arm: sv.arm[id], oaa: sv.oaa[id] };
     const out = {};
     for (const t of TOOLS) {
-      let parts = COMP[t.key].map(([k, label, val]) => ({ label, pct: num(src.pct?.[k]), val: val ? val(src) || null : null }));
+      let parts = toolParts(sv, id, t.key);
       if (isC && t.key === 'arm' && sv.popPct[id] != null) {
-        const r = sv.pop[id];
-        parts = [{ label: 'Pop Time (C)', pct: sv.popPct[id], val: `${(+r.pop_2b_sba).toFixed(2)}s` }];
+        parts = [{ label: 'Pop Time (C)', pct: sv.popPct[id], val: `${(+sv.pop[id].pop_2b_sba).toFixed(2)}s` }];
       }
       if (isC && t.key === 'glove' && sv.frmPct[id] != null) {
         parts = [{ label: 'Framing (C)', pct: sv.frmPct[id], val: `${signed(+sv.frm[id].rv_tot)} runs` }];
       }
-      const have = parts.filter(p => p.pct != null);
-      const pct = have.length ? Math.round(have.reduce((s, p) => s + p.pct, 0) / have.length) : null;
+      const c = composite(parts), pool = sv.norm[t.key];
+      let pct = c == null ? null : pool && pool.length > 20
+        ? Math.round(100 * pool.filter(v => v < c).length / pool.length) : Math.round(c);
+      if (pct != null) pct = Math.max(1, Math.min(99, pct));
       out[t.key] = { pct, grade: gradeOf(pct), parts };
     }
     return out;
@@ -236,6 +274,7 @@ const FT = (() => {
         if (toolCoverage(t2) > (tools ? toolCoverage(tools) : 0)) { tools = t2; savYear = y - 1; }
       }
       rec.tools = tools; rec.savYear = savYear;
+      if (pos === 'C' && now) rec.abs = now.absByName[nameKey(rec.name)] || now.absByName[nameKey(`${rec.first} ${rec.last}`)] || { n: 0 };
       DB.players[p.id] = rec;
     }
     return out.map(p => DB.players[p.id]);
@@ -548,6 +587,16 @@ const FT = (() => {
           <div class="det">${detail}</div></div>
       </div>`;
     }).join('');
+    // Catchers get an ABS row: how well they use the challenge system. Not a tool —
+    // it never moves the Savant check — just ammunition for the argument.
+    const A = p.abs;
+    const absRow = !A ? '' : `<div class="tool abs" style="--c:var(--ink)">
+        <div class="tname">ABS<small>CHALLENGES</small></div>
+        <div class="grade">${A.n ? Math.round(A.rate * 100) + '%' : '—'}</div>
+        <div class="bar">${!A.n ? '<div class="na">NO ABS CHALLENGES ON RECORD</div>' : `${A.pct == null ? '' :
+          `<div class="track"><div class="fill" style="width:${A.pct}%;background:${pctColor(A.pct)}"></div><div class="bub" style="left:${A.pct}%;background:${pctColor(A.pct)}">${A.pct}</div></div>`}
+          <div class="det">Overturned <b>${A.ot} of ${A.n}</b> · Expected <b>${Math.round(A.exp * 100)}%</b> · Run value <b>${signed(A.runs)}</b></div>`}</div>
+      </div>`;
     const s = p.season, c = p.career, y = DB.year;
     const line = (lab, st, war) => st ? `<tr><th>${lab}</th><td>${st.g ?? '—'}</td><td>${st.avg}</td><td>${st.obp}</td><td>${st.slg}</td><td>${st.hr}</td><td>${st.sb}</td><td>${war ?? '—'}</td></tr>`
       : `<tr><th>${lab}</th><td colspan="7" class="dim">did not play</td></tr>`;
@@ -571,8 +620,8 @@ const FT = (() => {
             <div class="c-meta">${p.pos} <i>|</i> AGE ${p.age ?? '—'} <i>|</i> B/T ${p.bats || '?'}/${p.throws || '?'}</div></div>
           ${verdict}
         </div>
-        <div class="tools-h"><span>TOOL</span><span>GRADE</span><span>BASEBALL SAVANT PERCENTILE · ${p.savYear}${p.savYear !== y ? ' (LIMITED ' + y + ' SAMPLE)' : ''}</span></div>
-        <div class="tools">${rows}</div>
+        <div class="tools-h"><span>TOOL</span><span>GRADE</span><span>MLB PERCENTILE · BASEBALL SAVANT + ${p.savYear} STATS${p.savYear !== y ? ' (LIMITED ' + y + ' SAMPLE)' : ''}</span></div>
+        <div class="tools">${rows}${absRow}</div>
         <table class="stats"><thead><tr><th></th><th>G</th><th>AVG</th><th>OBP</th><th>SLG</th><th>HR</th><th>SB</th><th>WAR</th></tr></thead>
           <tbody>${line(String(y), s, p.war)}${line('CAREER', c, null)}</tbody></table>
       </div>`;

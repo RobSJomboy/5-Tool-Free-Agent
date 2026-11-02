@@ -11,6 +11,8 @@ Talkin' Baseball segment: drag this winter's free agents into a five-circle Venn
   control, which draws the camera boxes over its preview. Add `&bg=clear` for a transparent background.
 
 Data is fetched live at page load: free agents + 2026/career stats + WAR from MLB StatsAPI, tool grades
-from Baseball Savant percentile rankings (2025 used when a player barely played in 2026). A tool's grade
-is the mean of its Savant percentiles on the 20–80 scouting scale; "plus tool" threshold is set in control.
+from Baseball Savant (2025 used when a player barely played in 2026). Each tool blends Savant percentiles with real
+production (AVG, ISO/HR, stolen bases), re-ranks that blend against every regular, and puts it on the 20–80 scouting
+scale; the "plus tool" threshold is set in control. Catchers' arm/glove use pop time and framing, and their card adds
+an ABS row from Savant's ABS Challenges leaderboard (overturn rate, expected rate, run value).
 Control and display sync through the Jomboy Cloudflare relay.
