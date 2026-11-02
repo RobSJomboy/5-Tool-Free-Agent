@@ -86,6 +86,8 @@
   .settings input[type=text] { width: 110px; }
   .hostA { color: var(--hostA); } .hostB { color: var(--hostB); }
   .help { font: 500 14px var(--cond); color: var(--dim); }
+  body:not(.game) .gameOnly, body.game .gameOff { display: none; }
+  #scoreTxt { color: var(--gold); font-weight: 700; }
 
   #float { position: fixed; pointer-events: none; z-index: 100; display: none; transform: translate(-50%, -50%); }
   #float .hs { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 4px solid var(--ink); background: var(--tc); box-shadow: 4px 5px 0 rgba(0,0,0,.35); }
@@ -136,6 +138,13 @@
         <button id="checkAll" title="Show where Savant would have put everyone">Savant check all</button>
         <button id="clearChecks">Clear checks</button>
         <button id="clearBoard" class="danger">Clear board</button>
+      </div>
+      <div class="global">
+        <span class="k">game</span>
+        <select id="game"><option value="">Off (just sort)</option><option value="team">Beat the Data (hosts vs Savant)</option></select>
+        <span class="gameOnly"><button id="finalBtn">Show final score</button> <button id="newGame">New game</button></span>
+        <span class="gameOnly status" id="scoreTxt"></span>
+        <span class="gameOff help">Turn on to score every Savant check: a tool called right = hosts +1, wrong = Savant +1.</span>
         <span class="grow"></span>
         <span class="help">Drag from the list onto the circles · drag a chip off the board to remove · keys: S spotlight · C check · Del remove</span>
       </div>
@@ -179,7 +188,7 @@
 
   // ── state ──
   const DEF = { room: 'tb-5tool-' + Math.random().toString(36).slice(2, 7), show: true, bg: 'paper', board: [], spot: null, spotOn: false,
-    shedOn: false, checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, guides: true,
+    shedOn: false, game: '', finalOn: false, checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, guides: true,
     extra: [], fx: { n: 0 }, toolNames: Object.assign({}, FT.TOOL_DEFAULT), safe: Object.assign({}, FT.SAFE_DEFAULT) };
   let S;
   try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { S = Object.assign({}, DEF); }
@@ -243,6 +252,14 @@
     $('shedBtn').textContent = S.shedOn ? 'Hide tool shed' : 'Show tool shed';
     $('shedBtn').classList.toggle('on', S.shedOn);
     document.body.classList.toggle('noguides', !S.guides);
+    document.body.classList.toggle('game', S.game === 'team');
+    $('game').value = S.game || '';
+    $('finalBtn').textContent = S.finalOn ? 'Hide final score' : 'Show final score';
+    $('finalBtn').classList.toggle('on', !!S.finalOn);
+    if (S.game === 'team') {
+      const sc = FT.teamScore(S);
+      $('scoreTxt').textContent = `${FT.teamName(S)} ${sc.hosts} · Savant ${sc.savant} · ${sc.checked} checked`;
+    }
     drawGuides();
     stage.render(Object.assign({}, S, { sel }));
     drawList(); drawInsp();
@@ -336,7 +353,7 @@
     const p = sel && P(sel); if (!p) return;
     const b = onBoard(p.id);
     if (a === 'spot') {
-      if (S.spotOn && S.spot === p.id) S.spotOn = false; else { S.spot = p.id; S.spotOn = true; }
+      if (S.spotOn && S.spot === p.id) S.spotOn = false; else { S.spot = p.id; S.spotOn = true; S.finalOn = false; }
     } else if (a === 'check' && b) {
       if (S.checks.includes(p.id)) S.checks = S.checks.filter(x => x !== p.id);
       else {
@@ -460,10 +477,16 @@
   $('airBtn').onclick = () => { S.show = !S.show; commit(); };
   $('cardBtn').onclick = () => {
     if (S.spotOn) S.spotOn = false;
-    else if (sel || S.spot) { S.spot = sel || S.spot; S.spotOn = true; }
+    else if (sel || S.spot) { S.spot = sel || S.spot; S.spotOn = true; S.finalOn = false; }
     commit();
   };
-  $('shedBtn').onclick = () => { S.shedOn = !S.shedOn; if (S.shedOn) S.spotOn = false; commit(); };
+  $('shedBtn').onclick = () => { S.shedOn = !S.shedOn; if (S.shedOn) { S.spotOn = false; S.finalOn = false; } commit(); };
+  $('game').onchange = () => { S.game = $('game').value; if (!S.game) S.finalOn = false; commit(); };
+  $('finalBtn').onclick = () => { S.finalOn = !S.finalOn; if (S.finalOn) { S.spotOn = false; S.shedOn = false; } commit(); };
+  $('newGame').onclick = () => {
+    if (S.checks.length && !confirm('Start a new game? This clears every Savant check (the board stays).')) return;
+    S.checks = []; S.finalOn = false; commit();
+  };
   $('checkAll').onclick = () => { S.checks = S.board.map(b => b[0]); commit(); };
   $('clearChecks').onclick = () => { S.checks = []; commit(); };
   $('clearBoard').onclick = () => {

@@ -325,6 +325,26 @@ const FT = (() => {
   }
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // ── Beat the Data (optional game) ──
+  // The hosts play as one team against Savant. Every player they've Savant-checked
+  // scores tool by tool: a tool they called the same as the data is a point for
+  // the hosts, a tool they got wrong is a point for Savant. Computed from the board
+  // itself, so moving a player (which clears his check) takes his points back off.
+  const teamName = S => S.teamName || `${S.names?.a || 'Trev'} & ${S.names?.b || 'Jake'}`;
+  const toolsRight = (hm, sm) => 5 - countOf(hm ^ sm);
+  function teamScore(S) {
+    const T = S.T || 55, out = { hosts: 0, savant: 0, checked: 0, perfect: 0, list: [] };
+    for (const id of S.checks || []) {
+      const b = (S.board || []).find(r => r[0] === id), p = DB.players[id];
+      if (!b || !p || !p.tools) continue;
+      const right = toolsRight(maskAt(b[1], b[2]), savantMask(p, T));
+      out.hosts += right; out.savant += 5 - right; out.checked++;
+      if (right === 5) out.perfect++;
+      out.list.push({ p, right });
+    }
+    return out;
+  }
+
   // ════════════════════════════════════════════════════════════════════
   //  STAGE — 1920×1080, used as the OBS output and as the control's preview
   // ════════════════════════════════════════════════════════════════════
@@ -381,16 +401,18 @@ const FT = (() => {
         </svg>
         <div class="ghosts"></div>
         <div class="chips"></div>
+        <div class="score"></div>
         <div class="fx"></div>
       </div>
       <div class="over">
         <div class="shed"></div>
+        <div class="final"></div>
         <div class="card"></div>
       </div>`;
     host.appendChild(el);
     const q = s => el.querySelector(s);
     const chipEls = {}, ghostEls = {};
-    let lastFx = 0, lastSpot = null, lastShedKey = '', hlMask = -1, lastSafe = '';
+    let lastFx = 0, lastSpot = null, lastShedKey = '', hlMask = -1, lastSafe = '', lastScore = '';
     function layout(safe, names) {
       setToolNames(names);
       const key = JSON.stringify([safe || {}, TOOLS.map(t => t.name)]);
@@ -402,6 +424,7 @@ const FT = (() => {
       hlMask = -1;
       Object.assign(q('.plate').style, { left: s.l + 'px', top: s.t + 'px' });
       Object.assign(q('.guyzone').style, { left: s.l + 'px', top: (s.b - 170) + 'px' });
+      Object.assign(q('.score').style, { right: (1920 - s.r) + 'px', top: s.t + 'px' });
       // the card and the shed sit over the Venn, centred in the safe area
       const o = q('.over'), k = Math.min(1, (s.r - s.l - 24) / 1080, (s.b - s.t - 24) / 640);
       Object.assign(o.style, { left: (s.l + s.r) / 2 + 'px', top: (s.t + s.b) / 2 + 'px', transform: `translate(-50%,-50%) scale(${k})` });
@@ -523,11 +546,25 @@ const FT = (() => {
       }).join('');
 
       // side panel: spotlight card, or the running tally
-      const spotP = S.spotOn && S.spot && DB.players[S.spot];
+      const game = S.game === 'team', finalOn = game && !!S.finalOn;
+      const spotP = !finalOn && S.spotOn && S.spot && DB.players[S.spot];
+      el.classList.toggle('gaming', game);
+      el.classList.toggle('finaling', finalOn);
       el.classList.toggle('carding', !!spotP);
-      el.classList.toggle('shedding', !spotP && !!S.shedOn);
+      el.classList.toggle('shedding', !finalOn && !spotP && !!S.shedOn);
+      if (game) {
+        const sc = teamScore(S), key = JSON.stringify([sc.hosts, sc.savant, sc.checked, teamName(S), finalOn]);
+        if (key !== lastScore) {
+          const bump = lastScore && JSON.parse(lastScore);
+          lastScore = key;
+          q('.score').innerHTML = `<div class="sc-h">BEAT THE DATA</div>
+            <div class="sc-row ${bump && sc.hosts > bump[0] ? 'up' : ''}"><span>${esc(teamName(S))}</span><b>${sc.hosts}</b></div>
+            <div class="sc-row sav ${bump && sc.savant > bump[1] ? 'up' : ''}"><span>SAVANT</span><b>${sc.savant}</b></div>`;
+          if (finalOn) q('.final').innerHTML = finalHTML(sc, S);
+        }
+      } else lastScore = '';
       if (spotP) {
-        const key = JSON.stringify([S.spot, board.find(r => r[0] === S.spot), (S.checks || []).includes(S.spot), T, S.names]);
+        const key = JSON.stringify([S.spot, board.find(r => r[0] === S.spot), (S.checks || []).includes(S.spot), T, S.names, game]);
         if (key !== lastSpot) {
           const fresh = !lastSpot || JSON.parse(lastSpot)[0] !== S.spot;
           lastSpot = key;
@@ -547,11 +584,31 @@ const FT = (() => {
           const b = board.find(r => r[0] === S.fx.id), [x, y] = b ? toPx(b[1], b[2]) : toPx(0, 0);
           if (S.fx.type === 'five') { confetti(x, y); stamp('FIVE-TOOL!', LAY.CX, LAY.CY - 40, 'red'); flashRegion(31); }
           else if (S.fx.type === 'guy') stamp('JUST A GUY', x, y - 30, 'grey');
+          else if ((S.fx.type === 'agree' || S.fx.type === 'overrule') && game && b && DB.players[S.fx.id]) {
+            const right = toolsRight(maskAt(b[1], b[2]), savantMask(DB.players[S.fx.id], T));
+            stamp(right === 5 ? 'PERFECT READ' : `${right} OF 5`, x, y - 70, right === 5 ? 'green' : right >= 3 ? 'navy' : 'red');
+          }
           else if (S.fx.type === 'agree') stamp('SAVANT AGREES', x, y - 70, 'green');
           else if (S.fx.type === 'overrule') stamp('OVERRULED', x, y - 70, 'red');
           else if (S.fx.type === 'land' && b) flashRegion(maskAt(b[1], b[2]));
         }
       }
+    }
+
+    function finalHTML(sc, S) {
+      const who = esc(teamName(S)), lead = sc.hosts - sc.savant;
+      const head = !sc.checked ? 'NO PLAYERS CHECKED YET' : lead > 0 ? `${who} BEAT THE DATA` : lead < 0 ? 'THE DATA WINS' : 'DEAD EVEN';
+      const pctRight = sc.checked ? Math.round(100 * sc.hosts / (sc.checked * 5)) : 0;
+      const by = [...sc.list].sort((a, b) => b.right - a.right);
+      const best = by[0], worst = by[by.length - 1];
+      const face = x => `<div class="fn-p"><img src="${headshot(x.p.id, 160)}" alt=""><div><b>${esc(x.p.last)}</b><span>${x.right} OF 5 TOOLS</span></div></div>`;
+      return `<div class="shed-h"><b>BEAT THE DATA</b><span>FINAL</span></div>
+        <div class="fn-body">
+          <div class="fn-head ${lead > 0 ? 'win' : lead < 0 ? 'loss' : ''}">${head}</div>
+          <div class="fn-score"><div><span>${who}</span><b>${sc.hosts}</b></div><i>–</i><div class="sav"><span>SAVANT</span><b>${sc.savant}</b></div></div>
+          <div class="fn-stats"><div><b>${sc.checked}</b><span>PLAYERS CHECKED</span></div><div><b>${pctRight}%</b><span>TOOLS CALLED RIGHT</span></div><div><b>${sc.perfect}</b><span>PERFECT READS</span></div></div>
+          ${sc.list.length > 1 ? `<div class="fn-ext"><div><span class="k">BEST READ</span>${face(best)}</div><div><span class="k">BIGGEST MISS</span>${face(worst)}</div></div>` : ''}
+        </div>`;
     }
 
     function shedHTML(board, S) {
@@ -604,8 +661,9 @@ const FT = (() => {
     if (b) {
       verdict = `<div class="verdict"><div class="vh"><span>HOSTS SAY</span><b>${COUNT_NAME[countOf(hm)]}</b></div>`;
       if (checked) {
-        const agree = sm === hm;
-        verdict += `<div class="vs ${agree ? 'agree' : 'disagree'}"><span>SAVANT SAYS</span><b>${COUNT_NAME[countOf(sm)]}</b><em>${agree ? 'AGREES' : 'OVERRULED'}</em></div>`;
+        const agree = sm === hm, right = toolsRight(hm, sm);
+        const tag = S.game === 'team' ? (agree ? 'PERFECT' : `${right}/5 RIGHT`) : agree ? 'AGREES' : 'OVERRULED';
+        verdict += `<div class="vs ${agree ? 'agree' : 'disagree'}"><span>SAVANT SAYS</span><b>${COUNT_NAME[countOf(sm)]}</b><em>${tag}</em></div>`;
       }
       verdict += '</div>';
     }
@@ -676,5 +734,5 @@ const FT = (() => {
   }
 
   return { TOOLS, TOOL_DEFAULT, TOOL_PRESETS, setToolNames, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
-    load, ensure, search, createStage, cardHTML, pctColor, esc, hubOf, publisher, subscribe };
+    load, ensure, search, createStage, teamScore, teamName, cardHTML, pctColor, esc, hubOf, publisher, subscribe };
 })();

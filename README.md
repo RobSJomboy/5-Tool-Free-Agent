@@ -16,3 +16,7 @@ production (AVG, ISO/HR, stolen bases), re-ranks that blend against every regula
 scale; the "plus tool" threshold is set in control. Catchers' arm/glove use pop time and framing, and their card adds
 an ABS row from Savant's ABS Challenges leaderboard (overturn rate, expected rate, run value).
 Control and display sync through the Jomboy Cloudflare relay.
+
+**Beat the Data** (optional, off by default): in control set *Game* to "Beat the Data". The hosts play as one team
+against Savant — every Savant check scores tool by tool (called right = hosts +1, wrong = Savant +1). A scoreboard
+sits top-right of the safe area; *Show final score* puts up the result with best read / biggest miss.

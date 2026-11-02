@@ -87,10 +87,40 @@
 .conf { position: absolute; width: 12px; height: 12px; animation: conf 2s cubic-bezier(.1,.7,.3,1) forwards; z-index: 19; }
 @keyframes conf { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 380px)) rotate(var(--r)); opacity: 0; } }
 
+/* Beat the Data scoreboard — top-right of the safe area, only in game mode */
+.score { position: absolute; height: 62px; box-sizing: border-box; background: var(--paper); border: 4px solid var(--ink); box-shadow: 5px 5px 0 rgba(15,39,66,.25); display: none; }
+.stage.gaming .score { display: flex; }
+.sc-h { background: var(--navy); color: var(--paper); font: 700 22px/1 var(--head); padding: 0 14px; display: flex; align-items: center; border-right: 5px solid var(--gold); }
+.sc-row { display: flex; align-items: center; gap: 12px; padding: 0 16px; font: 700 21px/1 var(--head); text-transform: uppercase; }
+.sc-row b { font-size: 38px; font-variant-numeric: tabular-nums; }
+.sc-row.sav { border-left: 2px solid var(--paper2); color: var(--red); }
+.sc-row.up b { animation: bump .6s cubic-bezier(.3,1.8,.5,1); }
+@keyframes bump { 0% { transform: scale(1.8); } 100% { transform: scale(1); } }
+.stamp.navy { color: var(--ink); font-size: 76px; }
+
 /* overlay box: spotlight card or the tool shed, centred over the Venn */
 .over { position: absolute; width: 1080px; height: 620px; z-index: 10; }
 .shed, .card { position: absolute; inset: 0; transition: opacity .35s, transform .45s cubic-bezier(.3,1.2,.5,1); box-sizing: border-box;
   background: var(--paper); border: 4px solid var(--ink); box-shadow: 12px 12px 0 rgba(15,39,66,.3); }
+.final { position: absolute; inset: 0; box-sizing: border-box; background: var(--paper); border: 4px solid var(--ink); box-shadow: 12px 12px 0 rgba(15,39,66,.3);
+  transition: opacity .35s, transform .45s cubic-bezier(.3,1.2,.5,1); display: flex; flex-direction: column; }
+.stage:not(.finaling) .final { opacity: 0; transform: translateY(60px); pointer-events: none; }
+.stage.finaling .final { animation: cardIn .6s cubic-bezier(.3,1.25,.5,1); }
+.fn-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 10px 30px 18px; }
+.fn-head { font: 700 50px/1 var(--head); text-transform: uppercase; color: var(--ink); text-align: center; }
+.fn-head.win { color: var(--green); } .fn-head.loss { color: var(--red); }
+.fn-score { display: flex; align-items: center; gap: 30px; }
+.fn-score div { text-align: center; } .fn-score span { display: block; font: 700 22px var(--head); text-transform: uppercase; }
+.fn-score b { font: 700 120px/1 var(--head); font-variant-numeric: tabular-nums; }
+.fn-score .sav { color: var(--red); } .fn-score i { font: 700 80px var(--head); color: var(--slate); font-style: normal; }
+.fn-stats { display: flex; gap: 14px; }
+.fn-stats div { background: var(--navy); color: var(--paper); padding: 8px 18px 6px; text-align: center; min-width: 190px; }
+.fn-stats b { display: block; font: 700 38px/1 var(--head); color: var(--gold); } .fn-stats span { font: 600 15px var(--cond); letter-spacing: .08em; }
+.fn-ext { display: flex; gap: 40px; }
+.fn-ext .k { display: block; font: 700 14px var(--cond); letter-spacing: .1em; color: var(--slate); margin-bottom: 4px; }
+.fn-p { display: flex; align-items: center; gap: 10px; }
+.fn-p img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: 50% 0; background: var(--paper2); border: 3px solid var(--ink); }
+.fn-p b { display: block; font: 700 28px/1 var(--head); text-transform: uppercase; } .fn-p span { font: 600 16px var(--cond); color: var(--slate); }
 .stage:not(.carding) .card, .stage:not(.shedding) .shed { opacity: 0; transform: translateY(60px); pointer-events: none; }
 
 .shed { display: flex; flex-direction: column; bottom: auto; max-height: 100%; }
