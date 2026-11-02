@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5-Tool Free Agent · Display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ftfa.css">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  #wait { position: fixed; left: 24px; bottom: 20px; font: 14px 'DM Mono', monospace; color: #8ea3b5; letter-spacing: .1em; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="wait">LOADING…</div>
+<script src="ftfa.js"></script>
+<script>
+'use strict';
+// OBS Browser Source: display.html?room=<room>   (1920×1080)
+//   &bg=clear  forces a transparent background regardless of the control setting
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const ROOM = params.get('room') || '';
+  const stage = FT.createStage(document.getElementById('app'));
+  const fit = () => { stage.el.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080) || 1})`; };
+  addEventListener('resize', fit); fit();
+
+  // A Browser Source that isn't being rendered stops the animation clock, and every
+  // entrance would freeze at opacity 0. If the timeline stalls, paint end states instead.
+  let t0 = document.timeline.currentTime;
+  setInterval(() => {
+    const t = document.timeline.currentTime;
+    document.documentElement.classList.toggle('no-anim', t === t0);
+    t0 = t;
+  }, 1500);
+
+  const wait = document.getElementById('wait');
+  let S = { show: true, board: [], checks: [] }, lastSeq = 0;
+  const draw = () => {
+    if (params.get('bg') === 'clear') S.bg = 'clear';
+    stage.render(S);
+  };
+  function apply(s) {
+    if (!s || s.app !== 'ftfa' || !(s.seq > lastSeq)) return;
+    lastSeq = s.seq;
+    S = s;
+    const ids = (s.board || []).map(b => b[0]).concat(s.spot ? [s.spot] : []);
+    FT.DB.ready.then(() => FT.ensure(ids)).then(draw);
+    draw();
+  }
+
+  FT.load(+params.get('year') || 2026, msg => { if (ROOM) wait.textContent = msg.toUpperCase(); });
+  if (!ROOM) wait.textContent = 'NO ROOM — OPEN THIS FROM THE CONTROL PAGE';
+  else FT.subscribe(FT.hubOf(params), ROOM, apply);
+  await FT.DB.ready;
+  wait.style.display = 'none';
+  draw();
+})();
+</script>
+</body>
+</html>

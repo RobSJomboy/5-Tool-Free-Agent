@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5-Tool Free Agent · Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ftfa.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #08131c; color: var(--ink); font: 14px/1.35 var(--sans); display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--navy3); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover { background: #24506f; }
+  button.gold { background: var(--gold); color: #10202c; border-color: var(--gold); font-weight: 700; }
+  button.on { background: #1f7a4a; border-color: #2fbf71; }
+  button.danger { background: #6b1f25; border-color: #b0383f; }
+  input[type=text], select { background: #0f2131; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 10px; }
+  label { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); }
+  .k { font: 11px var(--mono); letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--navy); border-bottom: 2px solid rgba(251,204,122,.35); flex-wrap: wrap; }
+  header h1 { margin: 0 8px 0 0; font: 30px/1 var(--bebas); letter-spacing: .03em; font-weight: 400; }
+  header h1 b { color: var(--gold); font-weight: 400; }
+  .grow { flex: 1; }
+  .status { font: 12px var(--mono); color: var(--dim); }
+  .status.ok { color: #4ade80; } .status.bad { color: #ff7b7f; }
+  #airBtn.live { background: #b91c1c; border-color: #ef4444; }
+
+  main { display: grid; grid-template-columns: 330px 1fr; min-height: 0; }
+  /* pool */
+  #pool { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid rgba(255,255,255,.08); background: #0b1924; }
+  .pool-top { padding: 10px; display: grid; gap: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .filters { display: flex; gap: 4px; flex-wrap: wrap; }
+  .filters button { padding: 4px 9px; font-size: 12px; }
+  .filters button.act { background: var(--gold); color: #10202c; }
+  #list { overflow-y: auto; flex: 1; padding: 6px; }
+  .row { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 6px; border-radius: 10px; cursor: grab; user-select: none; touch-action: none; border: 1px solid transparent; }
+  .row:hover { background: rgba(255,255,255,.05); }
+  .row.sel { border-color: var(--gold); background: rgba(251,204,122,.08); }
+  .row.placed { opacity: .5; }
+  .row .hs { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; background: var(--tc); }
+  .row .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
+  .row .n { font: 20px/1 var(--bebas); letter-spacing: .03em; }
+  .row .m { font: 11px var(--mono); color: var(--dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .where { font: 10px var(--mono); color: var(--gold); letter-spacing: .06em; }
+  .dots { display: flex; gap: 3px; }
+  .dots i { width: 22px; height: 22px; border-radius: 5px; font: 600 10px/22px var(--mono); text-align: center; font-style: normal; background: rgba(255,255,255,.06); color: #5d7183; }
+  .dots i.plus { background: var(--c); color: #0b1924; }
+  body.nohints .dots { display: none; }
+  .sect { font: 11px var(--mono); letter-spacing: .14em; color: var(--dim); padding: 10px 6px 4px; }
+  .srch .row { cursor: pointer; }
+
+  /* centre */
+  #centre { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 12px; gap: 10px; overflow-y: auto; }
+  #preview { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(255,255,255,.12); flex: none; }
+  #preview .chips, #preview .chip { pointer-events: auto; }
+  #preview .chip { cursor: grab; touch-action: none; }
+  #preview .chip.sel .ph { outline: 4px dashed #fff; outline-offset: 5px; }
+  #preview .chip.dragging { opacity: .25; }
+  #preview .stage.off .board, #preview .stage.off .side { opacity: .35; }
+  .offtag { position: absolute; right: 10px; top: 10px; font: 12px var(--mono); background: #6b1f25; padding: 4px 8px; border-radius: 6px; letter-spacing: .1em; display: none; }
+  body.offair .offtag { display: block; }
+
+  #insp { display: flex; flex-wrap: wrap; gap: 10px 18px; background: var(--navy); border-radius: 12px; padding: 12px 14px; }
+  .who { display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1 1 380px; }
+  .who .hs { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--tc); flex: none; }
+  .who .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
+  .who .n { font: 30px/1 var(--bebas); letter-spacing: .03em; }
+  .who .m { font: 12px var(--mono); color: var(--dim); margin-top: 4px; }
+  .who .r { font: 12px var(--mono); margin-top: 4px; }
+  .acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .global { flex: 1 1 100%; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+  .settings { flex: 1 1 100%; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .settings input[type=text] { width: 110px; }
+  .hostA { color: #ff8a3d; } .hostB { color: #2ec4ff; }
+  .help { font: 12px var(--mono); color: #6f8293; }
+
+  /* drag float + region readout */
+  #float { position: fixed; pointer-events: none; z-index: 100; display: none; transform: translate(-50%, -50%); }
+  #float .hs { width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 3px solid #fff; background: var(--tc); box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+  #float .hs img { width: 100%; height: 120%; object-fit: cover; object-position: 50% 0; }
+  #float .rg { position: absolute; left: 50%; top: 82px; transform: translateX(-50%); white-space: nowrap; font: 18px/1 var(--bebas); letter-spacing: .05em;
+    background: #08131c; padding: 5px 9px 3px; border-radius: 6px; border: 1px solid var(--gold); color: var(--gold); }
+  #float .rg small { font: 11px var(--mono); color: #fff; margin-left: 6px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8,19,28,.8); font: 28px var(--bebas); letter-spacing: .06em; color: var(--gold); z-index: 50; }
+</style>
+</head>
+<body>
+<header>
+  <h1>THE <b>5-TOOL</b> FREE AGENT</h1>
+  <button id="airBtn" title="Fade the whole board in / out on the display">Board ON AIR</button>
+  <button id="cardBtn">Show card</button>
+  <span class="grow"></span>
+  <span class="k">room</span><input type="text" id="room" style="width:150px">
+  <button id="copyUrl">Copy OBS URL</button>
+  <button id="openOut">Open display</button>
+  <span class="status" id="net">not sent</span>
+</header>
+<main>
+  <section id="pool">
+    <div class="pool-top">
+      <input type="text" id="q" placeholder="Search free agents — or any MLB hitter">
+      <div class="filters" id="filters"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="k">sort</span>
+        <select id="sort">
+          <option value="war">2026 WAR</option>
+          <option value="tools">Savant tool count</option>
+          <option value="pa">2026 plate appearances</option>
+          <option value="name">Name</option>
+        </select>
+        <label><input type="checkbox" id="hints" checked> Savant hints</label>
+      </div>
+    </div>
+    <div id="list"></div>
+  </section>
+  <section id="centre">
+    <div id="preview"><div class="offtag">BOARD OFF AIR</div></div>
+    <div id="insp">
+      <div class="who" id="who"></div>
+      <div class="acts" id="acts"></div>
+      <div class="global">
+        <span class="k">board</span>
+        <button id="checkAll" title="Show where Savant would have put everyone">Savant check · all</button>
+        <button id="clearChecks">Clear checks</button>
+        <button id="clearBoard" class="danger">Clear board</button>
+        <span class="grow"></span>
+        <span class="help">Drag from the list onto the circles · drag a chip off the board to remove · keys: S spotlight · C check · Del remove</span>
+      </div>
+      <div class="settings">
+        <label>Plus tool =
+          <select id="T"><option value="50">50+ (avg)</option><option value="55">55+ (above avg)</option><option value="60">60+ (plus)</option><option value="65">65+ (plus-plus-ish)</option></select>
+        </label>
+        <label>Chip size <input type="range" id="chip" min="0.6" max="1.4" step="0.05"></label>
+        <label><span class="hostA">●</span> <input type="text" id="nameA"></label>
+        <label><span class="hostB">●</span> <input type="text" id="nameB"></label>
+        <label><input type="checkbox" id="autoSpot"> Spotlight on drop</label>
+        <label>Background <select id="bg"><option value="navy">Navy</option><option value="clear">Transparent</option></select></label>
+        <label>Subtitle <input type="text" id="subtitle" style="width:240px" placeholder="2026 · BUILT ON BASEBALL SAVANT"></label>
+      </div>
+    </div>
+  </section>
+</main>
+<div id="float"><div class="hs"><img alt=""></div><div class="rg"></div></div>
+<div id="loading">LOADING…</div>
+<script src="ftfa.js"></script>
+<script>
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const HUB = FT.hubOf(params);
+  const STORE = 'ftfa-control-v1';
+  const YEAR = +params.get('year') || 2026;
+
+  // ── state ──
+  const DEF = { room: 'tb-5tool-' + Math.random().toString(36).slice(2, 7), show: true, bg: 'navy', board: [], spot: null, spotOn: false,
+    checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, extra: [], fx: { n: 0 } };
+  let S;
+  try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { S = Object.assign({}, DEF); }
+  if (params.get('room')) S.room = params.get('room');
+  let sel = null;
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} };
+
+  // ── stage preview ──
+  const stage = FT.createStage($('preview'));
+  const scale = () => $('preview').clientWidth / 1920;
+  const fit = () => { stage.el.style.transform = `scale(${scale()})`; };
+  new ResizeObserver(fit).observe($('preview'));
+  fit();
+
+  const net = (t, c) => { $('net').textContent = t; $('net').className = 'status ' + c; };
+  const send = FT.publisher(HUB, () => S.room, net);
+  const payload = () => {
+    const { room, autoSpot, hints, extra, ...wire } = S;
+    return Object.assign(wire, { app: 'ftfa', seq: Date.now() });
+  };
+  let pubT = 0;
+  function commit(now = true) {
+    save(); draw();
+    clearTimeout(pubT);
+    pubT = setTimeout(() => send(payload()), now ? 0 : 300);
+  }
+  const fx = (type, id) => { S.fx = { n: (S.fx?.n || 0) + 1, type, id }; };
+
+  // ── helpers ──
+  const P = id => FT.DB.players[id];
+  const onBoard = id => S.board.find(b => b[0] === id);
+  const maskOf = id => { const b = onBoard(id); return b ? FT.maskAt(b[1], b[2]) : null; };
+  const OF = ['LF', 'CF', 'RF', 'OF'], IF = ['1B', '2B', '3B', 'SS'];
+  const POS = { all: () => true, C: p => p.pos === 'C', IF: p => IF.includes(p.pos), OF: p => OF.includes(p.pos), DH: p => p.pos === 'DH' || p.pos === 'TWP' };
+  let posF = 'all';
+  const toolCount = p => FT.countOf(FT.savantMask(p, S.T));
+  const slash = s => s ? `${s.avg}/${s.obp}/${s.slg}` : 'no 2026 MLB PA';
+
+  // ── draw ──
+  function draw() {
+    document.body.classList.toggle('offair', !S.show);
+    document.body.classList.toggle('nohints', !S.hints);
+    $('airBtn').textContent = S.show ? 'Board ON AIR' : 'Board OFF AIR';
+    $('airBtn').classList.toggle('live', S.show);
+    $('cardBtn').textContent = S.spotOn ? 'Hide card' : 'Show card';
+    $('cardBtn').classList.toggle('on', S.spotOn);
+    stage.render(Object.assign({}, S, { sel }));
+    drawList(); drawInsp();
+  }
+
+  function rowHTML(p, cls = '') {
+    const b = onBoard(p.id), m = b ? FT.maskAt(b[1], b[2]) : null;
+    const dots = FT.TOOLS.map(t => {
+      const g = p.tools?.[t.key]?.grade;
+      return `<i style="--c:${t.color}" class="${g != null && g >= S.T ? 'plus' : ''}" title="${t.name} ${g ?? '—'}">${g ?? '–'}</i>`;
+    }).join('');
+    return `<div class="row ${cls} ${sel === p.id ? 'sel' : ''} ${b ? 'placed' : ''}" data-id="${p.id}">
+      <div class="hs" style="--tc:${p.team.color}"><img src="${FT.headshot(p.id, 120)}" alt="" draggable="false" loading="lazy"></div>
+      <div style="min-width:0"><div class="n">${FT.esc(p.name)}</div>
+        <div class="m">${p.pos} · ${p.team.abbr} · ${slash(p.season)}${p.war != null ? ' · ' + p.war + ' WAR' : ''}</div>
+        ${b ? `<div class="where">ON BOARD · ${FT.COUNT_NAME[FT.countOf(m)]}</div>` : ''}</div>
+      <div class="dots">${dots}</div></div>`;
+  }
+  let remote = [], remoteQ = '';
+  function drawList() {
+    if (!FT.DB.faIds.length && !S.extra.length) return;
+    const q = $('q').value.trim().toLowerCase();
+    const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const match = p => p && POS[posF](p) && (!q || norm(p.name).includes(norm(q)));
+    const sorters = {
+      war: (a, b) => (b.war ?? -9) - (a.war ?? -9),
+      tools: (a, b) => toolCount(b) - toolCount(a) || (b.war ?? -9) - (a.war ?? -9),
+      pa: (a, b) => (b.season?.pa ?? 0) - (a.season?.pa ?? 0),
+      name: (a, b) => a.last.localeCompare(b.last),
+    };
+    const sorter = sorters[$('sort').value];
+    const extra = S.extra.map(P).filter(match).sort(sorter);
+    const fa = FT.DB.faIds.map(P).filter(match).sort(sorter);
+    let h = '';
+    if (extra.length) h += `<div class="sect">ADDED BY YOU</div>` + extra.map(p => rowHTML(p)).join('');
+    h += `<div class="sect">${YEAR}–${(YEAR + 1) % 100} FREE AGENTS · ${fa.length}</div>` + fa.map(p => rowHTML(p)).join('');
+    if (q.length >= 3) {
+      const rs = remote.filter(r => !P(r.id) || (!FT.DB.faIds.includes(r.id) && !S.extra.includes(r.id)));
+      h += `<div class="sect">ALL MLB · CLICK TO ADD</div><div class="srch">` +
+        (remoteQ !== q ? '<div class="m" style="padding:6px">searching…</div>' :
+          rs.length ? rs.map(r => `<div class="row" data-add="${r.id}"><div class="hs" style="--tc:#2a3b4c"><img src="${FT.headshot(r.id, 120)}" alt="" loading="lazy"></div><div><div class="n">${FT.esc(r.name)}</div><div class="m">${r.pos || ''} · add to the pool</div></div><div></div></div>`).join('')
+            : '<div class="m" style="padding:6px">no other matches</div>') + '</div>';
+    }
+    $('list').innerHTML = h;
+  }
+  let sT = 0;
+  $('q').addEventListener('input', () => {
+    drawList();
+    const q = $('q').value.trim().toLowerCase();
+    clearTimeout(sT);
+    if (q.length >= 3) sT = setTimeout(async () => { remote = await FT.search(q); remoteQ = q; drawList(); }, 300);
+  });
+  $('sort').onchange = drawList;
+  $('filters').innerHTML = Object.keys(POS).map(k => `<button data-f="${k}" class="${k === posF ? 'act' : ''}">${k === 'all' ? 'ALL' : k}</button>`).join('');
+  $('filters').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    posF = b.dataset.f;
+    [...$('filters').children].forEach(x => x.classList.toggle('act', x === b));
+    drawList();
+  };
+  $('hints').onchange = () => { S.hints = $('hints').checked; save(); draw(); };
+
+  function drawInsp() {
+    const p = sel && P(sel);
+    if (!p) {
+      $('who').innerHTML = `<div class="m" style="color:var(--dim)">Select a player — click a chip on the board or a name in the list.</div>`;
+      $('acts').innerHTML = '';
+      return;
+    }
+    const b = onBoard(p.id), m = b ? FT.maskAt(b[1], b[2]) : null, sm = FT.savantMask(p, S.T);
+    const checked = S.checks.includes(p.id), spotting = S.spotOn && S.spot === p.id;
+    $('who').innerHTML = `<div class="hs" style="--tc:${p.team.color}"><img src="${FT.headshot(p.id, 160)}" alt=""></div>
+      <div style="min-width:0"><div class="n">${FT.esc(p.name)}</div>
+      <div class="m">${p.pos} · ${p.team.abbr} · ${YEAR}: ${slash(p.season)}, ${p.season?.hr ?? 0} HR, ${p.season?.sb ?? 0} SB${p.war != null ? ', ' + p.war + ' WAR' : ''}</div>
+      <div class="r">${b ? `<span style="color:var(--gold)">BOARD: ${FT.regionName(m)}</span>` : '<span style="color:var(--dim)">not on the board</span>'}
+        ${S.hints ? ` &nbsp;·&nbsp; <span style="color:#9fb3c4">SAVANT: ${FT.regionName(sm)}</span>` : ''}</div></div>`;
+    $('acts').innerHTML = `
+      <button data-a="spot" class="${spotting ? 'on' : 'gold'}">${spotting ? 'Card is up' : 'Spotlight card'}</button>
+      <button data-a="check" ${b ? '' : 'disabled'} class="${checked ? 'on' : ''}">${checked ? 'Savant shown' : 'Savant check'}</button>
+      <span class="k" style="margin-left:6px">placed by</span>
+      <button data-a="by-" class="${b && !b[3] ? 'on' : ''}" ${b ? '' : 'disabled'}>—</button>
+      <button data-a="by-a" class="${b && b[3] === 'a' ? 'on' : ''}" ${b ? '' : 'disabled'}><span class="hostA">●</span> ${FT.esc(S.names.a)}</button>
+      <button data-a="by-b" class="${b && b[3] === 'b' ? 'on' : ''}" ${b ? '' : 'disabled'}><span class="hostB">●</span> ${FT.esc(S.names.b)}</button>
+      <button data-a="remove" class="danger" ${b ? '' : 'disabled'}>Remove</button>`;
+  }
+  $('acts').onclick = e => {
+    const a = e.target.closest('button')?.dataset.a;
+    if (a) act(a);
+  };
+  function act(a) {
+    const p = sel && P(sel); if (!p) return;
+    const b = onBoard(p.id);
+    if (a === 'spot') {
+      if (S.spotOn && S.spot === p.id) S.spotOn = false; else { S.spot = p.id; S.spotOn = true; }
+    } else if (a === 'check' && b) {
+      if (S.checks.includes(p.id)) S.checks = S.checks.filter(x => x !== p.id);
+      else {
+        S.checks.push(p.id);
+        fx(FT.savantMask(p, S.T) === FT.maskAt(b[1], b[2]) ? 'agree' : 'overrule', p.id);
+      }
+    } else if (a.startsWith('by-') && b) {
+      b[3] = a.slice(3) || undefined;
+      if (!b[3]) b.length = 3;
+    } else if (a === 'remove' && b) removeP(p.id);
+    commit();
+  }
+  function removeP(id) {
+    S.board = S.board.filter(x => x[0] !== id);
+    S.checks = S.checks.filter(x => x !== id);
+    if (S.spot === id) S.spotOn = false;
+  }
+
+  // ── drag & drop (pointer events: mouse, pen and touch alike) ──
+  const fl = $('float');
+  let drag = null;
+  function stagePt(e) {
+    const r = $('preview').getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
+    const s = scale();
+    return [(e.clientX - r.left) / s, (e.clientY - r.top) / s];
+  }
+  // keep chips on the Venn side of the screen, clear of the side panel
+  const clampPt = ([x, y]) => [Math.max(50, Math.min(1250, x)), Math.max(50, Math.min(1030, y))];
+  // Nudge a drop off any chip it would cover, without leaving the region it was
+  // dropped in — the region is the take, the exact spot isn't.
+  function freeSpot(id, [x, y]) {
+    const d = 92 * S.chipScale, others = S.board.filter(b => b[0] !== id).map(b => FT.toPx(b[1], b[2]));
+    const m = FT.maskAt(...FT.toUV(x, y));
+    const clear = (px, py) => others.every(([ox, oy]) => ((px - ox) / d) ** 2 + ((py - oy) / (d * 1.3)) ** 2 >= 1);
+    for (let i = 0; i < 400; i++) {
+      const a = i * 2.39996, r = 6 * Math.sqrt(i) * S.chipScale;   // golden-angle spiral outwards
+      const [px, py] = clampPt([x + Math.cos(a) * r, y + Math.sin(a) * r]);
+      if (FT.maskAt(...FT.toUV(px, py)) === m && clear(px, py)) return FT.toUV(px, py);
+    }
+    return FT.toUV(x, y);
+  }
+  function startDrag(e, id, from) {
+    const p = P(id); if (!p) return;
+    drag = { id, from, x0: e.clientX, y0: e.clientY, live: false };
+    fl.querySelector('img').src = FT.headshot(id, 160);
+    fl.querySelector('.hs').style.setProperty('--tc', p.team.color);
+  }
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!drag.live) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
+      drag.live = true;
+      fl.style.display = 'block';
+      const c = stage.chipEls[drag.id]; if (c) c.classList.add('dragging');
+    }
+    fl.style.left = e.clientX + 'px'; fl.style.top = e.clientY + 'px';
+    const pt = stagePt(e);
+    if (pt) {
+      const [u, v] = FT.toUV(...clampPt(pt)), m = FT.maskAt(u, v);
+      stage.highlight(m);
+      fl.querySelector('.rg').innerHTML = `${FT.COUNT_NAME[FT.countOf(m)]}<small>${m && m !== 31 ? FT.regionName(m) : ''}</small>`;
+      fl.querySelector('.rg').style.display = '';
+    } else {
+      stage.highlight(-1);
+      fl.querySelector('.rg').innerHTML = drag.from === 'board' ? 'REMOVE' : '';
+      fl.querySelector('.rg').style.display = drag.from === 'board' ? '' : 'none';
+    }
+  });
+  addEventListener('pointerup', e => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    fl.style.display = 'none';
+    stage.highlight(-1);
+    const c = stage.chipEls[d.id]; if (c) c.classList.remove('dragging');
+    if (!d.live) { select(d.id); return; }
+    const pt = stagePt(e);
+    if (!pt) { if (d.from === 'board') { removeP(d.id); commit(); } return; }
+    const [u, v] = freeSpot(d.id, clampPt(pt)), m = FT.maskAt(u, v);
+    const b = onBoard(d.id), prev = b ? FT.maskAt(b[1], b[2]) : null;
+    if (b) { b[1] = +u.toFixed(4); b[2] = +v.toFixed(4); }
+    else S.board.push([d.id, +u.toFixed(4), +v.toFixed(4)]);
+    // moving him invalidates the old Savant verdict
+    S.checks = S.checks.filter(x => x !== d.id);
+    if (m !== prev) fx(m === 31 ? 'five' : m === 0 ? 'guy' : 'land', d.id);
+    sel = d.id;
+    if (S.autoSpot && !b) { S.spot = d.id; S.spotOn = true; }
+    else if (S.spotOn && S.spot !== d.id && S.autoSpot) S.spot = d.id;
+    commit();
+  });
+  $('list').addEventListener('pointerdown', e => {
+    const add = e.target.closest('[data-add]');
+    if (add) { addExtra(+add.dataset.add); return; }
+    const r = e.target.closest('.row[data-id]');
+    if (r) { e.preventDefault(); startDrag(e, +r.dataset.id, 'list'); }
+  });
+  $('preview').addEventListener('pointerdown', e => {
+    const c = e.target.closest('.chip');
+    if (c) { e.preventDefault(); startDrag(e, +c.dataset.id, 'board'); }
+  });
+  async function addExtra(id) {
+    await FT.ensure([id]);
+    if (!P(id)) return;
+    if (!S.extra.includes(id)) S.extra.unshift(id);
+    $('q').value = '';
+    select(id);
+    save();
+  }
+  function select(id) { sel = sel === id ? null : id; draw(); }
+
+  addEventListener('keydown', e => {
+    if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === 'Escape') { sel = null; draw(); }
+    else if (!sel) return;
+    else if (e.key === 's' || e.key === 'S') act('spot');
+    else if (e.key === 'c' || e.key === 'C') act('check');
+    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); act('remove'); }
+  });
+
+  // ── global controls ──
+  $('airBtn').onclick = () => { S.show = !S.show; commit(); };
+  $('cardBtn').onclick = () => {
+    if (S.spotOn) S.spotOn = false;
+    else if (sel || S.spot) { S.spot = sel || S.spot; S.spotOn = true; }
+    commit();
+  };
+  $('checkAll').onclick = () => { S.checks = S.board.map(b => b[0]); commit(); };
+  $('clearChecks').onclick = () => { S.checks = []; commit(); };
+  $('clearBoard').onclick = () => {
+    if (!S.board.length || !confirm(`Clear all ${S.board.length} players off the board?`)) return;
+    S.board = []; S.checks = []; S.spotOn = false; commit();
+  };
+  const bindVal = (id, get, set) => { $(id).value = get(); $(id).addEventListener('input', () => { set($(id).value); commit(false); }); };
+  bindVal('T', () => S.T, v => S.T = +v);
+  bindVal('chip', () => S.chipScale, v => S.chipScale = +v);
+  bindVal('nameA', () => S.names.a, v => S.names.a = v);
+  bindVal('nameB', () => S.names.b, v => S.names.b = v);
+  bindVal('bg', () => S.bg, v => S.bg = v);
+  bindVal('subtitle', () => S.subtitle, v => S.subtitle = v);
+  $('autoSpot').checked = S.autoSpot;
+  $('autoSpot').onchange = () => { S.autoSpot = $('autoSpot').checked; save(); };
+  $('hints').checked = S.hints;
+
+  $('room').value = S.room;
+  $('room').addEventListener('change', () => { S.room = $('room').value.trim() || DEF.room; $('room').value = S.room; commit(); });
+  const outUrl = () => new URL('display.html', location.href.split('#')[0].split('?')[0]).href + '?room=' + encodeURIComponent(S.room) + (params.get('hub') ? '&hub=' + encodeURIComponent(HUB) : '');
+  $('copyUrl').onclick = async () => {
+    try { await navigator.clipboard.writeText(outUrl()); $('copyUrl').textContent = 'Copied!'; }
+    catch { prompt('OBS Browser Source URL (1920×1080):', outUrl()); }
+    setTimeout(() => $('copyUrl').textContent = 'Copy OBS URL', 1400);
+  };
+  $('openOut').onclick = () => window.open(outUrl(), 'ftfa-out', 'width=960,height=540');
+
+  // ── boot ──
+  FT.load(YEAR, msg => { $('loading').textContent = msg.toUpperCase(); });
+  FT.DB.ready.then(async () => {
+    await FT.ensure(S.extra.concat(S.board.map(b => b[0])));
+    $('loading').remove();
+    draw();
+    send(payload());   // the display catches up with whatever this window last had
+  }).catch(err => { $('loading').textContent = 'COULD NOT LOAD MLB DATA — ' + err.message; });
+})();
+</script>
+</body>
+</html>
