@@ -25,6 +25,17 @@ const FT = (() => {
   // colours never change; only the label does. Angle brackets are stripped because
   // names end up in innerHTML on both pages.
   const TOOL_DEFAULT = Object.fromEntries(TOOLS.map(t => [t.key, t.name]));
+  const TOOL_PRESETS = {
+    short: TOOL_DEFAULT,
+    scouting: { hit: 'HIT FOR AVERAGE', power: 'HIT FOR POWER', speed: 'RUN', arm: 'THROW', glove: 'FIELD' },
+  };
+  // Long names break onto two lines at the space nearest the middle.
+  function nameLines(n) {
+    if (n.length <= 9 || !n.includes(' ')) return [n];
+    let best = -1;
+    for (let i = 0; i < n.length; i++) if (n[i] === ' ' && (best < 0 || Math.abs(i - n.length / 2) < Math.abs(best - n.length / 2))) best = i;
+    return [n.slice(0, best), n.slice(best + 1)];
+  }
   function setToolNames(map) {
     for (const t of TOOLS) {
       const n = String((map && map[t.key]) || '').replace(/[<>&"]/g, '').trim().toUpperCase().slice(0, 18);
@@ -289,7 +300,10 @@ const FT = (() => {
       strokes += `<ellipse class="vstroke" ${shape} stroke="${t.color}"/>`;
       // tool label sits out at the tip of the ellipse's own (single-tool) region
       const [pu, pv] = POLES[1 << k], r = Math.hypot(pu, pv), [lx, ly] = toPx(pu / r * 0.8, pv / r * 0.8);
-      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}" style="font-size:${Math.round(U * .115 * Math.min(1, 7 / Math.max(6, t.name.length)))}px">${t.name}</text></g>`;
+      const lines = nameLines(t.name), longest = Math.max(...lines.map(l => l.length));
+      const fs = Math.round(U * .115 * Math.min(lines.length > 1 ? .8 : 1, 7 / Math.max(6, longest)));
+      const tspans = lines.map((l, i) => `<tspan x="0" y="${(i - (lines.length - 1) / 2) * fs * 0.95}">${l}</tspan>`).join('');
+      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}" style="font-size:${fs}px">${tspans}</text></g>`;
     });
     return `<svg class="venn" viewBox="0 0 ${LAY.W} ${LAY.H}" width="${LAY.W}" height="${LAY.H}">
       <defs>${defs}
@@ -527,7 +541,7 @@ const FT = (() => {
       const inHost = hm != null && (hm & (1 << k)), inSav = sm & (1 << k);
       const detail = tl ? tl.parts.filter(x => x.pct != null || x.val).map(x => `${x.label} <b>${x.val ?? x.pct + 'th'}</b>`).join(' · ') : '';
       return `<div class="tool ${inHost ? 'host' : ''} ${checked ? (inSav ? 'sav' : 'nosav') : ''}" style="--c:${t.color}">
-        <div class="tname"${t.name.length > 7 ? ` style="font-size:${Math.max(17, Math.round(28 * 7 / t.name.length))}px"` : ''}><i></i>${t.name}</div>
+        <div class="tname"${t.name.length > 7 ? ` style="font-size:${nameLines(t.name).length > 1 ? 21 : Math.max(17, Math.round(28 * 7 / t.name.length))}px"` : ''}><i></i>${nameLines(t.name).join('<br>')}</div>
         <div class="grade">${g ?? '—'}</div>
         <div class="bar">${pct == null ? '<div class="na">NO SAVANT DATA</div>' :
           `<div class="track"><div class="fill" style="width:${pct}%;background:${pctColor(pct)}"></div><div class="bub" style="left:${pct}%;background:${pctColor(pct)}">${pct}</div></div>`}
@@ -612,6 +626,6 @@ const FT = (() => {
     setInterval(poll, 30000);
   }
 
-  return { TOOLS, TOOL_DEFAULT, setToolNames, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
+  return { TOOLS, TOOL_DEFAULT, TOOL_PRESETS, setToolNames, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
     load, ensure, search, createStage, cardHTML, pctColor, esc, hubOf, publisher, subscribe };
 })();

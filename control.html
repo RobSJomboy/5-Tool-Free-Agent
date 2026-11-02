@@ -486,16 +486,18 @@
   };
   // tool names: one box per circle, in the circle's colour
   $('toolNames').insertAdjacentHTML('beforeend', FT.TOOLS.map(t =>
-    `<input type="text" data-tool="${t.key}" maxlength="18" style="width:130px;border-left:6px solid ${t.color};text-transform:uppercase" placeholder="${FT.TOOL_DEFAULT[t.key]}">`).join('') +
-    '<button id="namesReset">Reset</button>');
+    `<input type="text" data-tool="${t.key}" maxlength="18" style="width:150px;border-left:6px solid ${t.color};text-transform:uppercase" placeholder="${FT.TOOL_DEFAULT[t.key]}">`).join('') +
+    '<button data-preset="short" title="HIT · POWER · SPEED · ARM · GLOVE">Short</button><button data-preset="scouting" title="HIT FOR AVERAGE · HIT FOR POWER · RUN · THROW · FIELD">Scouting</button>');
   const nameBoxes = [...$('toolNames').querySelectorAll('input')];
-  const fillNames = () => nameBoxes.forEach(i => { i.value = S.toolNames[i.dataset.tool] === FT.TOOL_DEFAULT[i.dataset.tool] ? '' : S.toolNames[i.dataset.tool]; });
+  const fillNames = () => nameBoxes.forEach(i => { i.value = S.toolNames[i.dataset.tool]; });
   fillNames();
   nameBoxes.forEach(i => i.addEventListener('input', () => {
     S.toolNames[i.dataset.tool] = i.value.trim() || FT.TOOL_DEFAULT[i.dataset.tool];
     commit(false);
   }));
-  $('namesReset').onclick = () => { S.toolNames = Object.assign({}, FT.TOOL_DEFAULT); fillNames(); commit(); };
+  $('toolNames').querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
+    S.toolNames = Object.assign({}, FT.TOOL_PRESETS[b.dataset.preset]); fillNames(); commit();
+  });
   $('guides').checked = S.guides;
   $('guides').onchange = () => { S.guides = $('guides').checked; save(); draw(); };
   $('autoSpot').checked = S.autoSpot;

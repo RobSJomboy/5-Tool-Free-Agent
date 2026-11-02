@@ -14,7 +14,7 @@
 .stage.clear .backdrop { display: none; }
 .stage .board, .stage .over { transition: opacity .45s; }
 .stage.off .board, .stage.off .over { opacity: 0; }
-.stage .board { position: absolute; inset: 0; }
+.stage .board { position: absolute; inset: 0; z-index: 0; }   /* own stacking context: chip z-indexes stay under the card */
 
 /* title block, pinned to the top-left of the safe area */
 .plate { position: absolute; background: var(--navy); color: var(--paper); padding: 10px 16px 9px; border-bottom: 5px solid var(--gold);
@@ -88,7 +88,7 @@
 @keyframes conf { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 380px)) rotate(var(--r)); opacity: 0; } }
 
 /* overlay box: spotlight card or the tool shed, centred over the Venn */
-.over { position: absolute; width: 1080px; height: 620px; }
+.over { position: absolute; width: 1080px; height: 620px; z-index: 10; }
 .shed, .card { position: absolute; inset: 0; transition: opacity .35s, transform .45s cubic-bezier(.3,1.2,.5,1); box-sizing: border-box;
   background: var(--paper); border: 4px solid var(--ink); box-shadow: 12px 12px 0 rgba(15,39,66,.3); }
 .stage:not(.carding) .card, .stage:not(.shedding) .shed { opacity: 0; transform: translateY(60px); pointer-events: none; }
