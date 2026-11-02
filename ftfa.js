@@ -21,6 +21,16 @@ const FT = (() => {
     { key: 'arm',   name: 'ARM',   color: '#1f5fbf', blurb: 'Throwing strength' },
     { key: 'glove', name: 'GLOVE', color: '#6b3fa0', blurb: 'Range & defense' },
   ];
+  // The hosts can rename the tools on air ("BAT-TO-BALL", "WHEELS", …). Keys and
+  // colours never change; only the label does. Angle brackets are stripped because
+  // names end up in innerHTML on both pages.
+  const TOOL_DEFAULT = Object.fromEntries(TOOLS.map(t => [t.key, t.name]));
+  function setToolNames(map) {
+    for (const t of TOOLS) {
+      const n = String((map && map[t.key]) || '').replace(/[<>&"]/g, '').trim().toUpperCase().slice(0, 18);
+      t.name = n || TOOL_DEFAULT[t.key];
+    }
+  }
   const COUNT_NAME = ['JUST A GUY', 'ONE-TOOL', 'TWO-TOOL', 'THREE-TOOL', 'FOUR-TOOL', 'FIVE-TOOL'];
 
   // ── Venn geometry ──
@@ -279,7 +289,7 @@ const FT = (() => {
       strokes += `<ellipse class="vstroke" ${shape} stroke="${t.color}"/>`;
       // tool label sits out at the tip of the ellipse's own (single-tool) region
       const [pu, pv] = POLES[1 << k], r = Math.hypot(pu, pv), [lx, ly] = toPx(pu / r * 0.8, pv / r * 0.8);
-      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}" style="font-size:${Math.round(U * .115)}px">${t.name}</text></g>`;
+      labels += `<g class="vlabel" transform="translate(${lx} ${ly})"><text fill="${t.color}" style="font-size:${Math.round(U * .115 * Math.min(1, 7 / Math.max(6, t.name.length)))}px">${t.name}</text></g>`;
     });
     return `<svg class="venn" viewBox="0 0 ${LAY.W} ${LAY.H}" width="${LAY.W}" height="${LAY.H}">
       <defs>${defs}
@@ -328,8 +338,9 @@ const FT = (() => {
     const q = s => el.querySelector(s);
     const chipEls = {}, ghostEls = {};
     let lastFx = 0, lastSpot = null, lastShedKey = '', hlMask = -1, lastSafe = '';
-    function layout(safe) {
-      const key = JSON.stringify(safe || {});
+    function layout(safe, names) {
+      setToolNames(names);
+      const key = JSON.stringify([safe || {}, TOOLS.map(t => t.name)]);
       if (key === lastSafe) return;
       lastSafe = key;
       setSafe(safe);
@@ -387,7 +398,7 @@ const FT = (() => {
     }
 
     function render(S) {
-      layout(S.safe);
+      layout(S.safe, S.toolNames);
       el.classList.toggle('clear', S.bg === 'clear');
       el.classList.toggle('off', !S.show);
       el.style.setProperty('--chip', S.chipScale || 1);
@@ -516,7 +527,7 @@ const FT = (() => {
       const inHost = hm != null && (hm & (1 << k)), inSav = sm & (1 << k);
       const detail = tl ? tl.parts.filter(x => x.pct != null || x.val).map(x => `${x.label} <b>${x.val ?? x.pct + 'th'}</b>`).join(' · ') : '';
       return `<div class="tool ${inHost ? 'host' : ''} ${checked ? (inSav ? 'sav' : 'nosav') : ''}" style="--c:${t.color}">
-        <div class="tname"><i></i>${t.name}</div>
+        <div class="tname"${t.name.length > 7 ? ` style="font-size:${Math.max(17, Math.round(28 * 7 / t.name.length))}px"` : ''}><i></i>${t.name}</div>
         <div class="grade">${g ?? '—'}</div>
         <div class="bar">${pct == null ? '<div class="na">NO SAVANT DATA</div>' :
           `<div class="track"><div class="fill" style="width:${pct}%;background:${pctColor(pct)}"></div><div class="bub" style="left:${pct}%;background:${pctColor(pct)}">${pct}</div></div>`}
@@ -601,6 +612,6 @@ const FT = (() => {
     setInterval(poll, 30000);
   }
 
-  return { TOOLS, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
+  return { TOOLS, TOOL_DEFAULT, setToolNames, COUNT_NAME, LAY, SAFE_DEFAULT, CAMS, POLES, DB, maskAt, bits, countOf, regionName, toPx, toUV, savantMask, headshot, logo,
     load, ensure, search, createStage, cardHTML, pctColor, esc, hubOf, publisher, subscribe };
 })();

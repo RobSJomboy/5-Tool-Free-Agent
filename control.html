@@ -150,6 +150,9 @@
         <label>Background <select id="bg"><option value="paper">Paper</option><option value="clear">Transparent</option></select></label>
         <label>Subtitle <input type="text" id="subtitle" style="width:200px" placeholder="2026–27 OFFSEASON"></label>
       </div>
+      <div class="settings" id="toolNames">
+        <span class="k">tool names</span>
+      </div>
       <div class="settings">
         <span class="k">safe area (stays clear of the host cams)</span>
         <label>Left <input type="number" id="safeL" step="5"></label>
@@ -177,7 +180,7 @@
   // ── state ──
   const DEF = { room: 'tb-5tool-' + Math.random().toString(36).slice(2, 7), show: true, bg: 'paper', board: [], spot: null, spotOn: false,
     shedOn: false, checks: [], T: 55, chipScale: 1, names: { a: 'Trev', b: 'Jake' }, subtitle: '', autoSpot: true, hints: true, guides: true,
-    extra: [], fx: { n: 0 }, safe: Object.assign({}, FT.SAFE_DEFAULT) };
+    extra: [], fx: { n: 0 }, toolNames: Object.assign({}, FT.TOOL_DEFAULT), safe: Object.assign({}, FT.SAFE_DEFAULT) };
   let S;
   try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { S = Object.assign({}, DEF); }
   if (params.get('room')) S.room = params.get('room');
@@ -481,6 +484,18 @@
     for (const [id, k] of [['safeL', 'l'], ['safeR', 'r'], ['safeT', 't'], ['safeB', 'b']]) $(id).value = S.safe[k];
     commit();
   };
+  // tool names: one box per circle, in the circle's colour
+  $('toolNames').insertAdjacentHTML('beforeend', FT.TOOLS.map(t =>
+    `<input type="text" data-tool="${t.key}" maxlength="18" style="width:130px;border-left:6px solid ${t.color};text-transform:uppercase" placeholder="${FT.TOOL_DEFAULT[t.key]}">`).join('') +
+    '<button id="namesReset">Reset</button>');
+  const nameBoxes = [...$('toolNames').querySelectorAll('input')];
+  const fillNames = () => nameBoxes.forEach(i => { i.value = S.toolNames[i.dataset.tool] === FT.TOOL_DEFAULT[i.dataset.tool] ? '' : S.toolNames[i.dataset.tool]; });
+  fillNames();
+  nameBoxes.forEach(i => i.addEventListener('input', () => {
+    S.toolNames[i.dataset.tool] = i.value.trim() || FT.TOOL_DEFAULT[i.dataset.tool];
+    commit(false);
+  }));
+  $('namesReset').onclick = () => { S.toolNames = Object.assign({}, FT.TOOL_DEFAULT); fillNames(); commit(); };
   $('guides').checked = S.guides;
   $('guides').onchange = () => { S.guides = $('guides').checked; save(); draw(); };
   $('autoSpot').checked = S.autoSpot;
